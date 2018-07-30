@@ -12,7 +12,8 @@ from models import (Device, Supplyer, Admin, UserGroup, ApkVersion, Advertisemen
                     Video, Image, ADImage, ADVideo, Item, Road, ItemBrand, Redeem,
                     RedeemActivity, ItemCategory, VoiceActivity, Order,
                     AddressType, DeviceCategory, DeviceGroup, SupplyList,
-                    DayItemStat, DayDeviceStat, DayUserGroupStat, DayStat)
+                    DayItemStat, DayDeviceStat, DayUserGroupStat, DayStat, User,
+                    AddressAdmin, SponsorItem, SponsorAddress)
 from util import md5, xml_to_dict
 from base import BaseService, rpc, transaction_rpc
 from selector import (UserSelectorProxy, SelectorProxy, ItemSelectorProxy,
@@ -22,7 +23,7 @@ from selector import (UserSelectorProxy, SelectorProxy, ItemSelectorProxy,
 from const import (OrderStatus, PayStatus, PayType, SupplyStatus, RedeemStatus, RoadStatus)
 from pay.manager import PayManager
 from biz import OrderBiz, DeviceBiz, MarktingBiz
-from sms.helper import SMSHelper
+# from sms.helper import SMSHelper
 from entrypoint import distributed_timer
 
 logger = logging.getLogger()
@@ -59,11 +60,32 @@ class InvboxService(BaseService):
                 "resultCode": 1,
                 "resultMsg": "用户名或密码错误"
             }
+        # TODO:返回管理范围： 1,补货员， 2,场地方——场地， 3,品牌方——品牌
+        admin_range = []
+        admin_range_2 = []
+        if admin.role == 1:
+            supply_obj = Supplyer.select().where(Supplyer.admin == admin.id)
+            for obj in supply_obj:
+                admin_range.append(obj.id)
+        elif admin.role == 2:
+            address_obj = AddressAdmin.select().where(AddressAdmin.admin == admin.id)
+            for obj in address_obj:
+                admin_range.append(obj.address_id)
+        elif admin.role == 3:
+            item_obj = SponsorItem.select().where(SponsorItem.admin == admin.id)
+            for obj in item_obj:
+                admin_range.append(obj.item_id)
+            address_obj = SponsorAddress.select().where(SponsorAddress.admin == admin.id)
+            for obj in address_obj:
+                admin_range_2.append(obj.address_id)
+
         res = {
             "resultCode": 0,
             "resultMsg": "OK",
         }
         res.update(admin.to_dict())
+        res.update({"adminRange": admin_range})
+        res.update({"adminRange2": admin_range_2})
         return res
 
     @rpc
@@ -1055,6 +1077,7 @@ class InvboxService(BaseService):
             road = obj.road
             item = obj.item
             user = obj.user
+            redeem = obj.redeem
             d = {
                 "id": obj.id,
                 "no": obj.no,
@@ -1062,20 +1085,30 @@ class InvboxService(BaseService):
                     "id": device.id,
                     "no": device.no,
                     "name": device.name,
+                    "address": device.address_type.id
+                },
+                "redeem": {
+                    "id": redeem.id,
+                    "code": redeem.code
                 },
                 "road": {
                     "id": road.id,
-                    "no": road.no
+                    "no": road.no,
                 },
                 "item": {
                     "id": item.id,
-                    "name": item.name
+                    "name": item.name,
+                    "no": item.no,
+                    "brand": item.brand.id,
+                    "brand_name": item.brand.name
                 },
                 "user": {
                     "id": user.id,
                     "mobile": user.mobile,
                     "wxuserid": user.wxuserid,
+                    "username": user.username
                 } if user else {},
+                "count": obj.item_amount,
                 "status": obj.status,
                 "price": obj.price,
                 "payMoney": obj.pay_money,
@@ -2461,23 +2494,279 @@ class InvboxService(BaseService):
         return result
 
     @rpc
-    def get_export_order(self, start_date, end_date):
-        """
-        导出报表数据:会员-订单表
-        """
-        total_qs = Order.select()
-        pass
+    def get_test_data(self, args):
+        return args
 
     @rpc
-    def get_export_inventory(self, start_date, end_date):
-        """
-        导出报表数据：实时库存
-        """
-        pass
+    def get_accounts(self, page=1, page_size=10):
+        return self.do_page(
+            Admin.select(),
+            page,
+            item_parser=Admin.to_dict,
+            page_size=page_size,
+        )
 
-    @rpc
-    def get_export_user_monitor(self, start_date, end_date):
-        """
-        导出报表数据：人流监控
-        """
-        pass
+    @transaction_rpc
+    def add_account(self, name, mobile, password, role, admin_range, info_list=None):
+        if Admin.select().where(Admin.mobile == mobile).count():
+            return {
+                "resultCode": 1,
+                "resultMsg": "手机号已存在%s" % mobile
+            }
+        if not admin_range:
+            return {
+                "resultCode": 1,
+                "resultMsg": "请输入范围%s" % admin_range
+            }
+
+        # 补货员 admin_range=补货员id
+        if role == 1:
+            supplier_id = admin_range[0]
+            check_supplier = Supplyer.get_or_none(Supplyer.id == supplier_id)
+            if not check_supplier:
+                return {
+                    "resultCode": 1,
+                    "resultMsg": "不存在该补货员%s" % admin_range
+                }
+            if check_supplier and check_supplier.mobile != mobile:
+                return {
+                    "resultCode": 1,
+                    "resultMsg": "补货员手机号不匹配%s" % admin_range
+                }
+            else:
+                pwd = md5(password)
+                obj_admin = Admin.create(username=name, mobile=mobile, password=pwd, role=role)
+                obj_admin.save()
+
+                admin_id = Admin.get(mobile=mobile).id
+                obj_supplier = Supplyer.update(admin=admin_id)
+                obj_supplier.execute()
+
+                res = {
+                    "resultCode": 0,
+                    "resultMsg": "成功",
+                }
+                res.update(obj_admin.to_dict())
+                return res
+        # 场地方 admin_range场地id的数组（AddressType.id）
+        if role == 2:
+            pwd = md5(password)
+            obj_admin = Admin.create(username=name, mobile=mobile, password=pwd, role=role)
+            obj_admin.save()
+
+            admin_id = Admin.get(mobile=mobile).id
+
+            # 如果不存在场地，抛出异常，事务回滚
+            for addr in admin_range:
+                addr_id = int(addr)
+                check_addr = AddressType.get_or_none(AddressType.id == addr_id)
+                if not check_addr:
+                    raise KeyError
+                check_addr_admin = AddressAdmin.get_or_none(address_id=addr_id, admin_id=admin_id)
+                if check_addr_admin:
+                    addr_admin_id = check_addr_admin.id
+                    obj_addr_admin = AddressAdmin.update(update_at=dte.now()).where(id=addr_admin_id)
+                    obj_addr_admin.execute()
+                else:
+                    obj_addr_admin = AddressAdmin.create(address_id=addr_id, admin_id=admin_id)
+                    obj_addr_admin.save()
+
+            res = {
+                "resultCode": 0,
+                "resultMsg": "成功",
+            }
+            res.update(obj_admin.to_dict())
+            return res
+
+        # 品牌方
+        if role == 3:
+            pwd = md5(password)
+            obj_admin = Admin.create(username=name, mobile=mobile, password=pwd, role=role)
+            obj_admin.save()
+
+            admin_id = Admin.get(mobile=mobile).id
+            # 品牌方-商品管理， 如出现没有商品的情况，抛出异常事务回滚，品牌方创建失败
+            for item in admin_range:
+                item_id = int(item)
+                check_item = Item.get_or_none(Item.id == item_id)
+                if not check_item:
+                    raise KeyError
+                check_sponsor_item = SponsorItem.get_or_none(admin_id=admin_id, item_id=item_id)
+                if check_sponsor_item:
+                    sponsor_item_id = check_sponsor_item.id
+                    obj_sponsor_item = SponsorItem.update(update_at=dte.now()).where(id=sponsor_item_id)
+                else:
+                    obj_sponsor_item = SponsorItem.create(admin_id=admin_id, item_id=item_id)
+                obj_sponsor_item.save()
+
+            # 品牌方-场地管理，如出现没有场地传入的场地id的情况，抛出异常。事务回滚，品牌方创建失败
+            for addr in info_list:
+                addr_id = int(addr)
+                check_addr = AddressType.get_or_none(AddressType.id == addr_id)
+                if not check_addr:
+                    raise KeyError
+                check_sponsor_addr = SponsorAddress.get_or_none(admin_id=admin_id, address_id=addr_id)
+                if check_sponsor_addr:
+                    sponsor_addr_id = check_sponsor_addr.id
+                    obj_sponsor_addr = SponsorAddress.update(update_at=dte.now()).where(id=sponsor_addr_id)
+                    obj_sponsor_addr.execute()
+                else:
+                    obj_sponsor_addr = SponsorAddress.create(admin_id=admin_id, address_id=addr_id)
+                    obj_sponsor_addr.save()
+
+            res = {
+                "resultCode": 0,
+                "resultMsg": "成功",
+            }
+            res.update(obj_admin.to_dict())
+            return res
+
+    @transaction_rpc
+    def delete_account(self, ids):
+        q = Admin.delete().where(Admin.id.in_(ids))
+        q.execute()
+        return {
+            "resultCode": 0,
+            "resultMsg": "删除成功"
+        }
+
+    @transaction_rpc
+    def modify_accounts(self, info_list):
+        for info in info_list:
+            admin_id = info.get('id')
+            if not admin_id:
+                return {
+                    "resultCode": 1,
+                    "resultMsg": "请传入id"
+                }
+            if not Admin.get_or_none(Admin.id == admin_id):
+                return {
+                    "resultCode": 1,
+                    "resultMsg": "该用户不存在"
+                }
+            role = int(info.get("role"))
+
+            update_dict = {}
+            rang_list = info.get("admin_range")
+
+            username = info.get("username")
+            if username:
+                update_dict.update({"username": username})
+
+            password = info.get("password")
+            if password:
+                update_dict.update({"password": md5(password)})
+
+            mobile = info.get("mobile")
+            if mobile:
+                if Admin.get_or_none(Admin.mobile == mobile, Admin.id != admin_id):
+                    return {
+                        "resultCode": 1,
+                        "resultMsg": "该手机号被其他用户使用"
+                    }
+                else:
+                    update_dict.update({"mobile": mobile})
+            # 补货员更新
+            if role == 1:
+                supplier_list = info.get("admin_range")
+                if supplier_list:
+                    supplier_id = supplier_list[0]
+                    if mobile:
+                        if Supplyer.get_or_none(Supplyer.id == supplier_id, Supplyer.mobile != mobile):
+                            return {
+                                "resultCode": 1,
+                                "resultMsg": "手机号无法匹配补货员"
+                            }
+                        else:
+                            obj_supplier = Supplyer.update(admin=admin_id).where(id=supplier_id)
+                            obj_supplier.execute()
+                    else:
+                        obj_supplier = Supplyer.update(admin=admin_id).where(id=supplier_id)
+                        obj_supplier.execute()
+
+            # 场地方更新
+            elif role == 2:
+                address_list = info.get("admin_range")
+                if address_list:
+
+                    # 删除减少的场地id记录
+                    check_adress = AddressAdmin.select().where(AddressAdmin.admin == admin_id,
+                                                               AddressAdmin.address.not_in(address_list))
+                    delete_address_id = []
+                    if check_adress.count():
+                        for rec in check_adress:
+                            delete_address_id.append(rec.id)
+                        q = AddressAdmin.delete().where(AddressAdmin.id.in_(delete_address_id))
+                        q.execute()
+
+                    # 增加场地
+                    for add_id in address_list:
+                        check_exist_add = AddressAdmin.get_or_none(AddressAdmin.address == add_id,
+                                                                   AddressAdmin.admin == admin_id)
+                        if not check_exist_add:
+                            obj_add_admin = AddressAdmin.create(admin=admin_id, address=add_id)
+                            obj_add_admin.save()
+                        else:
+                            obj_add_admin = AddressAdmin.update(admin=admin_id, address=add_id, update_at=dte.now())
+                            obj_add_admin.execute()
+
+            # 更新品牌方
+            elif role == 3:
+                item_list = info.get("admin_range")
+                if item_list:
+                    check_item = SponsorItem.select().where(SponsorItem.admin == admin_id,
+                                                            SponsorItem.item.not_in(item_list))
+                    delete_item_id = []
+                    if check_item.count():
+                        for rec in check_item:
+                            delete_item_id.append(rec.id)
+                        q = SponsorItem.delete().where(SponsorItem.id.in_(delete_item_id))
+                        q.execute()
+                    for item_id in item_list:
+                        check_exist_item = SponsorItem.get_or_none(SponsorItem.item == item_id,
+                                                                   SponsorItem.admin == admin_id)
+                        if not check_exist_item:
+                            obj_item_admin = SponsorItem.create(admin=admin_id, item=item_id)
+                            obj_item_admin.save()
+                        else:
+                            obj_item_admin = SponsorItem.update(admin=admin_id, item=item_id, update_at=dte.now())
+                            obj_item_admin.execute()
+
+                # 修改品牌方管理场地
+                address_list = info.get("info_list")
+                if address_list:
+                    # 删除减少的场地id记录
+                    check_adress = SponsorAddress.select().where(SponsorAddress.admin == admin_id,
+                                                                 SponsorAddress.address.not_in(address_list))
+                    delete_address_id = []
+                    if check_adress.count():
+                        for rec in check_adress:
+                            delete_address_id.append(rec.id)
+                        q = SponsorAddress.delete().where(SponsorAddress.id.in_(delete_address_id))
+                        q.execute()
+
+                    # 增加场地
+                    for add_id in address_list:
+                        check_exist_add = SponsorAddress.get_or_none(SponsorAddress.address == add_id,
+                                                                     SponsorAddress.admin == admin_id)
+                        if not check_exist_add:
+                            obj_add_admin = SponsorAddress.create(admin=admin_id, address=add_id)
+                            obj_add_admin.save()
+                        else:
+                            obj_add_admin = SponsorAddress.update(admin=admin_id, address=add_id, update_at=dte.now())
+                            obj_add_admin.execute()
+
+            if not rang_list and not update_dict:
+                return {
+                    "resultCode": 1,
+                    "resultMsg": "没有可更新的信息"
+                }
+            else:
+                obj_admin = Admin.update(**update_dict).where(id=admin_id)
+                obj_admin.execute()
+                res = {
+                    "resultCode": 0,
+                    "resultMsg": "成功",
+                }
+                res.update(obj_admin.to_dict())
+                return res

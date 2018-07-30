@@ -110,11 +110,11 @@ class Admin(BaseModel):
     系统用户
     """
     id = pw.PrimaryKeyField()
-    mobile = pw.CharField(unique=True, index=True, max_length=11)        # 手机号码
-    username = pw.CharField(unique=True, index=True)        # 用户名
-    password = pw.CharField(default="default")              # 密码
-    role = pw.IntegerField(default=0, index=True)           # 角色
-    created_at = pw.DateTimeField(default=dte.now)          # 注册时间
+    mobile = pw.CharField(unique=True, index=True, max_length=11)  # 手机号码
+    username = pw.CharField(unique=True, index=True)  # 用户名
+    password = pw.CharField(default="default")  # 密码
+    role = pw.IntegerField(default=0, index=True)  # 角色 0-管理员，1-补货员， 2-场地方,3-品牌方
+    created_at = pw.DateTimeField(default=dte.now)  # 注册时间
 
     class Meta:
         db_table = 'admin'
@@ -137,6 +137,7 @@ class Supplyer(BaseModel):
     mobile = pw.CharField(unique=True, index=True, max_length=11)           # 手机号码
     name = pw.CharField(default="")                                         # 名字
     created_at = pw.DateTimeField(default=dte.now)          # 注册时间
+    admin = pw.ForeignKeyField(Admin, null=True)
 
     def to_dict(self):
         return {
@@ -816,6 +817,75 @@ class DayStat(BaseModel):
     created_at = pw.DateTimeField(default=dte.now)          # 创建时间
 
 
+class AddressAdmin(BaseModel):
+    """
+    点位方管理员-点位
+    """
+    id = pw.PrimaryKeyField()
+    admin = pw.ForeignKeyField(Admin, null=False)
+    address = pw.ForeignKeyField(AddressType, null=False)
+    status = pw.SmallIntegerField(default=1)
+    create_at = pw.DateField(default=dte.now())
+    update_at = pw.DateField(default=dte.now())
+
+    class Meta:
+        db_table = "address_admin"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.admin_id,
+            "mobile": self.address_id,
+        }
+
+
+class SponsorItem(BaseModel):
+    """
+    品牌方管理员-商品
+    """
+    id = pw.PrimaryKeyField()
+    admin = pw.ForeignKeyField(Admin, null=False)
+    item = pw.ForeignKeyField(Item, null=False)
+    status = pw.SmallIntegerField(default=1)
+    create_at = pw.DateField(default=dte.now())
+    update_at = pw.DateField(default=dte.now())
+
+    class Meta:
+        db_table = "sponsor_item"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "admin_id": self.admin_id,
+            "item_id": self.item_id,
+            "status": self.status,
+        }
+
+
+class SponsorAddress(BaseModel):
+    """
+    品牌方管理员-点位
+    """
+    id = pw.PrimaryKeyField()
+    admin = pw.ForeignKeyField(Admin, null=False)
+    address = pw.ForeignKeyField(AddressType, null=False)
+    status = pw.SmallIntegerField(default=1)
+    create_at = pw.DateField(default=dte.now())
+    update_at = pw.DateField(default=dte.now())
+
+    class Meta:
+        db_table = "sponsor_address"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "admin_id": self.admin_id,
+            "address_id": self.address_id,
+            "status": self.status,
+        }
+
+
+
 MODEL_TABLES = [
     Image,
     Video,
@@ -825,7 +895,6 @@ MODEL_TABLES = [
     DeviceCategory,
     DeviceGroup,
     Supplyer,
-    Admin,
     User,
     UserGroup,
     Advertisement,
@@ -848,6 +917,10 @@ MODEL_TABLES = [
     DayDeviceStat,
     DayUserGroupStat,
     DayStat,
+    Admin,
+    AddressAdmin,
+    SponsorItem,
+    SponsorAddress
 ]
 
 
