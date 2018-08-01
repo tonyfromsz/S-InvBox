@@ -2560,7 +2560,7 @@ class InvboxService(BaseService):
 
         add_obj = AddressAdmin.select().where(AddressAdmin.admin.in_(add_type))
         for obj in add_obj:
-            admin_dict.get(obj.admin_id)["range"].append(obj.id)
+            admin_dict.get(obj.admin_id)["range"].append(obj.address_id)
 
         spon_item_obj = SponsorItem.select().where(SponsorItem.admin.in_(sponsor))
         for obj in spon_item_obj:
