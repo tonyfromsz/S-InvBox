@@ -84,8 +84,8 @@ class InvboxService(BaseService):
             "resultMsg": "OK",
         }
         res.update(admin.to_dict())
-        res.update({"adminRange": admin_range})
-        res.update({"adminRange2": admin_range_2})
+        res.update({"range": admin_range})
+        res.update({"infoList": admin_range_2})
         return res
 
     @rpc
@@ -1071,7 +1071,33 @@ class InvboxService(BaseService):
             biz.deliver_fail()
 
     @rpc
-    def get_orders(self, page=1, base_url="", page_size=10, query=[]):
+    def get_orders(self, page=1, base_url="", page_size=10, query=[], export=None, admin_info=None):
+        role = admin_info.get("role")
+
+        if role == 2:
+            query.append([{
+                "operator": "场地",
+                "attribute": "device__address_type_id",
+                "value": admin_info["range"]
+            }])
+        elif role == 3:
+            if admin_info["range"]:
+                query.append(
+                    [{
+                        "operator": "场地",
+                        "attribute": "device__address_type_id",
+                        "value": admin_info["infoList"]
+                    }]
+                )
+            query.append(
+                [{
+                    "operator": "商品",
+                    "attribute": "item__id",
+                    "value": admin_info["range"]
+                }]
+            )
+
+
         def _parser(obj):
             device = obj.device
             road = obj.road
@@ -1106,7 +1132,8 @@ class InvboxService(BaseService):
                     "id": user.id,
                     "mobile": user.mobile,
                     "wxuserid": user.wxuserid,
-                    "username": user.username
+                    "username": user.username,
+                    "aliuserid": user.aliuserid
                 } if user else {},
                 "count": obj.item_amount,
                 "status": obj.status,
@@ -1120,12 +1147,17 @@ class InvboxService(BaseService):
                 "createdAt": obj.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
             return d
-
-        return self.do_page(
-            OrderSelectorProxy(query).select(),
-            page,
-            item_parser=_parser,
-        )
+        if not export:
+            return self.do_page(
+                qs=OrderSelectorProxy(query).select(),
+                page=page,
+                item_parser=_parser
+            )
+        else:
+            return self.do_export(
+                qs=OrderSelectorProxy(query).select(),
+                item_parser=_parser
+            )
 
     @rpc
     def order_overview(self, start_date, end_date, page=1):
@@ -2672,11 +2704,11 @@ class InvboxService(BaseService):
             if role == 1:
                 q = Supplyer.update(admin=None).where(Supplyer.admin == admin_id)
             if role == 2:
-                q = AddressAdmin.update(admin=None, status=1).where(AddressAdmin.admin == admin_id)
+                q = AddressAdmin.delete().where(AddressAdmin.admin == admin_id)
             if role == 3:
-                q = SponsorItem.update(admin=None, status=1).where(SponsorItem.admin == admin_id)
+                q = SponsorItem.delete().where(SponsorItem.admin == admin_id)
                 if SponsorAddress.get_or_none(SponsorAddress.admin == admin_id):
-                    q2 = SponsorAddress.update(admin=None, status=1).where(SponsorAddress.admin == admin_id)
+                    q2 = SponsorAddress.delete().where(SponsorAddress.admin == admin_id)
                     q2.execute()
             q.execute()
 
