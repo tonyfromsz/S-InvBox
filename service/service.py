@@ -2738,7 +2738,7 @@ class InvboxService(BaseService):
             update_dict = {}
             rang_list = info.get("admin_range")
 
-            username = info.get("username")
+            username = info.get("name")
             if username:
                 update_dict.update({"username": username})
 
@@ -2860,5 +2860,5 @@ class InvboxService(BaseService):
                     "resultCode": 0,
                     "resultMsg": "成功",
                 }
-                res.update(obj_admin.to_dict())
+                # res.update(obj_admin.to_dict())
                 return res
