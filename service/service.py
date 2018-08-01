@@ -2663,8 +2663,24 @@ class InvboxService(BaseService):
 
     @transaction_rpc
     def delete_account(self, ids):
-        q = Admin.delete().where(Admin.id.in_(ids))
-        q.execute()
+        delete_dict = {}
+        admin_obj = Admin.select().where(Admin.id.in_(ids))
+        for obj in admin_obj:
+            delete_dict.update({obj.id: obj.role})
+
+        for admin_id, role in delete_dict.items():
+            if role == 1:
+                q = Supplyer.update(admin=None).where(Supplyer.admin == admin_id)
+            if role == 2:
+                q = AddressAdmin.update(admin=None, status=1).where(AddressAdmin.admin == admin_id)
+            if role == 3:
+                q = SponsorItem.update(admin=None, status=1).where(SponsorItem.admin == admin_id)
+                q2 = SponsorAddress.update(admin=None, status=1).where(SponsorAddress.admin == admin_id)
+                q2.execute()
+            q.execute()
+
+        q_admin = Admin.delete().where(Admin.id.in_(ids))
+        q_admin.execute()
         return {
             "resultCode": 0,
             "resultMsg": "删除成功"
