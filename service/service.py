@@ -2854,7 +2854,7 @@ class InvboxService(BaseService):
                     "resultMsg": "没有可更新的信息"
                 }
             else:
-                obj_admin = Admin.update(**update_dict).where(id=admin_id)
+                obj_admin = Admin.update(**update_dict).where(Admin.id == admin_id)
                 obj_admin.execute()
                 res = {
                     "resultCode": 0,
