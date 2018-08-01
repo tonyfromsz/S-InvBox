@@ -2675,8 +2675,9 @@ class InvboxService(BaseService):
                 q = AddressAdmin.update(admin=None, status=1).where(AddressAdmin.admin == admin_id)
             if role == 3:
                 q = SponsorItem.update(admin=None, status=1).where(SponsorItem.admin == admin_id)
-                q2 = SponsorAddress.update(admin=None, status=1).where(SponsorAddress.admin == admin_id)
-                q2.execute()
+                if SponsorAddress.get_or_none(SponsorAddress.admin == admin_id):
+                    q2 = SponsorAddress.update(admin=None, status=1).where(SponsorAddress.admin == admin_id)
+                    q2.execute()
             q.execute()
 
         q_admin = Admin.delete().where(Admin.id.in_(ids))
