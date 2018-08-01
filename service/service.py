@@ -2611,7 +2611,7 @@ class InvboxService(BaseService):
                 obj_admin.save()
 
                 admin_id = Admin.get(mobile=mobile).id
-                obj_supplier = Supplyer.update(admin=admin_id)
+                obj_supplier = Supplyer.update(admin=admin_id).where(id=supplier_id)
                 obj_supplier.execute()
 
                 res = {
