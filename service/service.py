@@ -2767,10 +2767,10 @@ class InvboxService(BaseService):
                                 "resultMsg": "手机号无法匹配补货员"
                             }
                         else:
-                            obj_supplier = Supplyer.update(admin=admin_id).where(id=supplier_id)
+                            obj_supplier = Supplyer.update(admin=admin_id).where(Supplyer.id == supplier_id)
                             obj_supplier.execute()
                     else:
-                        obj_supplier = Supplyer.update(admin=admin_id).where(id=supplier_id)
+                        obj_supplier = Supplyer.update(admin=admin_id).where(Supplyer.id == supplier_id)
                         obj_supplier.execute()
 
             # 场地方更新
@@ -2796,7 +2796,8 @@ class InvboxService(BaseService):
                             obj_add_admin = AddressAdmin.create(admin=admin_id, address=add_id)
                             obj_add_admin.save()
                         else:
-                            obj_add_admin = AddressAdmin.update(admin=admin_id, address=add_id, update_at=dte.now())
+                            obj_add_admin = AddressAdmin.update(admin=admin_id, address=add_id, update_at=dte.now()).\
+                                where(AddressAdmin.id == check_exist_add.id)
                             obj_add_admin.execute()
 
             # 更新品牌方
@@ -2818,7 +2819,8 @@ class InvboxService(BaseService):
                             obj_item_admin = SponsorItem.create(admin=admin_id, item=item_id)
                             obj_item_admin.save()
                         else:
-                            obj_item_admin = SponsorItem.update(admin=admin_id, item=item_id, update_at=dte.now())
+                            obj_item_admin = SponsorItem.update(admin=admin_id, item=item_id, update_at=dte.now()).\
+                                where(SponsorItem.id == check_exist_item.id)
                             obj_item_admin.execute()
 
                 # 修改品牌方管理场地
@@ -2842,7 +2844,8 @@ class InvboxService(BaseService):
                             obj_add_admin = SponsorAddress.create(admin=admin_id, address=add_id)
                             obj_add_admin.save()
                         else:
-                            obj_add_admin = SponsorAddress.update(admin=admin_id, address=add_id, update_at=dte.now())
+                            obj_add_admin = SponsorAddress.update(admin=admin_id, address=add_id, update_at=dte.now())\
+                                .where(SponsorAddress.id == check_exist_add.id)
                             obj_add_admin.execute()
 
             if not rang_list and not update_dict:
