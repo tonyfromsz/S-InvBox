@@ -2499,12 +2499,52 @@ class InvboxService(BaseService):
 
     @rpc
     def get_accounts(self, page=1, page_size=10):
-        return self.do_page(
-            Admin.select(),
-            page,
-            item_parser=Admin.to_dict,
-            page_size=page_size,
-        )
+        result = self.do_page(qs=Admin.select().where(Admin.role != 0),
+                              page=page,
+                              item_parser=Admin.to_dict,
+                              page_size=page_size)
+
+        items = result.get("items")
+        supplyer = []
+        add_type = []
+        sponsor = []
+        admin_dict = {}
+
+        for item in items:
+            role = item.get("role")
+            admin_id = item.get('id')
+            logger.info(role)
+            admin_dict.update({admin_id: {"range": [], "infoList": []}})
+            if role == 1:
+                supplyer.append(item.get("id"))
+            elif role == 2:
+                add_type.append(item.get("id"))
+            elif role == 3:
+                sponsor.append(item.get("id"))
+
+        supp_obj = Supplyer.select().where(Supplyer.admin.in_(supplyer))
+        for obj in supp_obj:
+            admin_dict.get(obj.admin_id)["range"].append(obj.id)
+
+        add_obj = AddressAdmin.select().where(AddressAdmin.admin.in_(add_type))
+        for obj in add_obj:
+            admin_dict.get(obj.admin_id)["range"].append(obj.id)
+
+        spon_item_obj = SponsorItem.select().where(SponsorItem.admin.in_(sponsor))
+        for obj in spon_item_obj:
+            admin_dict.get(obj.admin_id)["range"].append(obj.item_id)
+
+        spon_add_obj = SponsorAddress.select().where(SponsorAddress.admin.in_(sponsor))
+        for obj in spon_add_obj:
+            admin_dict.get(obj.admin_id)["infoList"].append(obj.address_id)
+
+        for item in items:
+            item.update({"range": admin_dict.get(item["id"])})
+
+        result.update({"items": items})
+        return result
+
+
 
     @transaction_rpc
     def add_account(self, name, mobile, password, role, admin_range, info_list=None):
