@@ -413,6 +413,9 @@ class OrderSelectorProxy(SelectorProxy):
         "status": ("订单状态", IDSelector),
         "device__province": ("省份", StringSelector),
         "created_at": ("订单时间", DateSelector),
+        "device__address_type": ("场地", IDSelector),
+        "item": ("商品编号", IDSelector),
+        "device": ("设备", IDSelector)
     }
 
 
@@ -422,6 +425,8 @@ class RoadSelectorProxy(SelectorProxy):
     attribute_selectors = {
         "item": ("商品", IDSelector),
         "device": ("设备", IDSelector),
+        "device__address_type": ("场地", IDSelector),
+        "device__supplyer": ("补货员", IDSelector)
         # "device__name": ("设备名", StringSelector),
         # "device__online": ("是否在线", BooleanSelector),
         # "status": ("配货状态", IDSelector),

@@ -24,6 +24,20 @@ class BaseService(object):
             "items": items,
         }
 
+    def do_export(self, qs, item_parser=None):
+        total_count = qs.count()
+        items = []
+        for obj in qs:
+            if item_parser:
+                items.append(item_parser(obj))
+            else:
+                items.append(obj)
+
+        return {
+            "totalCount": total_count,
+            "items": items
+        }
+
 
 def transaction_rpc(func):
     """

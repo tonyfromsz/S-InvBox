@@ -1071,32 +1071,44 @@ class InvboxService(BaseService):
             biz.deliver_fail()
 
     @rpc
-    def get_orders(self, page=1, base_url="", page_size=10, query=[], export=None, admin_info=None):
+    def get_orders(self, page=1, base_url="", page_size=10, query=[], export=False, admin_info=None):
         role = admin_info.get("role")
+        admin_id = admin_info.get("id")
+        # print(query)
 
         if role == 2:
-            query.append([{
-                "operator": "场地",
-                "attribute": "device__address_type_id",
-                "value": admin_info["range"]
-            }])
+            print("role: 2")
+            add_obj = AddressAdmin.select().where(AddressAdmin.admin == admin_id)
+            admin_range = []
+            for obj in add_obj:
+                admin_range.append({
+                    "operator": "=",
+                    "attribute": "device__address_type",
+                    "value": obj.address_id
+                })
+            query.append(admin_range)
         elif role == 3:
-            if admin_info["range"]:
-                query.append(
-                    [{
-                        "operator": "场地",
-                        "attribute": "device__address_type_id",
-                        "value": admin_info["infoList"]
-                    }]
-                )
-            query.append(
-                [{
-                    "operator": "商品",
-                    "attribute": "item__id",
-                    "value": admin_info["range"]
-                }]
-            )
+            check_address = SponsorAddress.get_or_none(SponsorAddress.admin == admin_id)
+            adress_list = []
+            if check_address:
+                for obj in check_address:
+                    adress_list.append({
+                            "operator": "=",
+                            "attribute": "device__address_type",
+                            "value": obj.address_id
+                        })
+            query.append(adress_list)
 
+            check_item = SponsorItem.get_or_none(SponsorItem.admin == admin_id)
+            item_list = []
+            if check_item:
+                for obj in check_address:
+                    item_list.append({
+                            "operator": "=",
+                            "attribute": "item",
+                            "value": obj.item_id
+                        })
+            query.append(adress_list)
 
         def _parser(obj):
             device = obj.device
@@ -1565,7 +1577,46 @@ class InvboxService(BaseService):
         }
 
     @rpc
-    def get_roads(self, page=1, page_size=10, base_url="", query=[]):
+    def get_roads(self, page=1, page_size=10, base_url="", query=[], admin_info=None, export=False):
+        role = admin_info.get("role")
+        admin_id = admin_info.get("id")
+        admin_range = []
+        if role == 1:
+            sup_obj = Supplyer.select().where(Supplyer.admin == admin_id)
+            for obj in sup_obj:
+                admin_range.append({
+                    "operator": "=",
+                    "attribute": "device__supplyer",
+                    "value": obj.id
+                })
+        elif role == 2:
+            add_obj = AddressAdmin.select().where(AddressAdmin.admin == admin_id)
+            for obj in add_obj:
+                admin_range.append({
+                    "operator": "=",
+                    "attribute": "device__address_type",
+                    "value": obj.address_id
+                })
+        elif role == 3:
+            admin_add = []
+            add_obj = SponsorAddress.select().where(SponsorAddress.admin == admin_id)
+            for obj in add_obj:
+                admin_add.append({
+                    "operator": "=",
+                    "attribute": "device__address_type",
+                    "value": obj.address_id
+                })
+            query.append(admin_add)
+
+            item_obj = SponsorItem.select().where(SponsorItem.admin == admin_id)
+            for obj in item_obj:
+                admin_range.append({
+                    "operator": "=",
+                    "attribute": "item",
+                    "value": obj.item_id
+                })
+        query.append(admin_range)
+
         road_meta_data = {}
         for dc in DeviceCategory.select():
             road_meta_data[dc.id] = json.loads(dc.road_meta_list)
@@ -1582,13 +1633,15 @@ class InvboxService(BaseService):
                     "id": device.id,
                     "name": device.name,
                     "online": device.online,
+                    "address_type": device.address_type.id
                 },
                 "item": {
                     "id": item.id,
                     "name": item.name,
                 } if item else {},
                 "amount": obj.amount,
-                "limit": road_meta_list[int(obj.no) - 1]["upper_limit"],
+                # "limit": road_meta_list[int(obj.no) - 1]["upper_limit"],
+                "limit": 0,   # 测试用
                 "status": obj.status_msg,
                 "price": obj.price or getattr(item, "basic_price", 0),
                 "thumbnails": [o.to_dict(base_url=base_url) for o in obj.thumbnails or getattr(item, "thumbnails", [])],
@@ -1598,10 +1651,16 @@ class InvboxService(BaseService):
                 "updatedAt": obj.updated_at.strftime("%Y-%m-%d %H:%M:%S")
             }
             return d
-        return self.do_page(RoadSelectorProxy(query).select(),
-                            page,
-                            item_parser=_item_parser,
-                            page_size=page_size)
+
+        if not export:
+            return self.do_page(
+                qs=RoadSelectorProxy(query).select(),
+                page=page,
+                item_parser=_item_parser,
+                page_size=page_size)
+        else:
+            return self.do_export(qs=RoadSelectorProxy(query).select(),
+                                  item_parser=_item_parser)
 
     @transaction_rpc
     def modify_roads(self, info_list):
