@@ -1079,36 +1079,51 @@ class InvboxService(BaseService):
         if role == 2:
             print("role: 2")
             add_obj = AddressAdmin.select().where(AddressAdmin.admin == admin_id)
-            admin_range = []
-            for obj in add_obj:
-                admin_range.append({
-                    "operator": "=",
-                    "attribute": "device__address_type",
-                    "value": obj.address_id
-                })
-            query.append(admin_range)
+            if not add_obj:
+                return {
+                    "pageSize": page_size,
+                    "totalCount": 0,
+                    "page": page,
+                    "items": {},
+                }
+            else:
+                admin_range = []
+                for obj in add_obj:
+                    admin_range.append({
+                        "operator": "=",
+                        "attribute": "device__address_type",
+                        "value": obj.address_id
+                    })
+                query.append(admin_range)
         elif role == 3:
-            check_address = SponsorAddress.get_or_none(SponsorAddress.admin == admin_id)
-            adress_list = []
-            if check_address:
-                for obj in check_address:
-                    adress_list.append({
-                            "operator": "=",
-                            "attribute": "device__address_type",
-                            "value": obj.address_id
-                        })
-            query.append(adress_list)
-
             check_item = SponsorItem.get_or_none(SponsorItem.admin == admin_id)
-            item_list = []
-            if check_item:
-                for obj in check_address:
+            if not check_item:
+                return {
+                    "pageSize": page_size,
+                    "totalCount": 0,
+                    "page": page,
+                    "items": {},
+                }
+            else:
+                item_list = []
+                for obj in check_item:
                     item_list.append({
                             "operator": "=",
                             "attribute": "item",
                             "value": obj.item_id
                         })
-            query.append(adress_list)
+                query.append(item_list)
+
+            check_address = SponsorAddress.get_or_none(SponsorAddress.admin == admin_id)
+            if check_address:
+                address_list = []
+                for obj in check_address:
+                    address_list.append({
+                            "operator": "=",
+                            "attribute": "device__address_type",
+                            "value": obj.address_id
+                        })
+                query.append(address_list)
 
         def _parser(obj):
             device = obj.device
