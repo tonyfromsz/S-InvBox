@@ -1077,9 +1077,9 @@ class InvboxService(BaseService):
         # print(query)
 
         if role == 2:
-            print("role: 2")
+            # print("role: 2")
             add_obj = AddressAdmin.select().where(AddressAdmin.admin == admin_id)
-            if not add_obj:
+            if not add_obj.count():
                 return {
                     "pageSize": page_size,
                     "totalCount": 0,
@@ -1096,8 +1096,8 @@ class InvboxService(BaseService):
                     })
                 query.append(admin_range)
         elif role == 3:
-            check_item = SponsorItem.get_or_none(SponsorItem.admin == admin_id)
-            if not check_item:
+            check_item = SponsorItem.select().where(SponsorItem.admin == admin_id)
+            if not check_item.count():
                 return {
                     "pageSize": page_size,
                     "totalCount": 0,
@@ -1114,8 +1114,8 @@ class InvboxService(BaseService):
                         })
                 query.append(item_list)
 
-            check_address = SponsorAddress.get_or_none(SponsorAddress.admin == admin_id)
-            if check_address:
+            check_address = SponsorAddress.select().where(SponsorAddress.admin == admin_id)
+            if check_address.count():
                 address_list = []
                 for obj in check_address:
                     address_list.append({
@@ -1598,38 +1598,64 @@ class InvboxService(BaseService):
         admin_range = []
         if role == 1:
             sup_obj = Supplyer.select().where(Supplyer.admin == admin_id)
-            for obj in sup_obj:
-                admin_range.append({
-                    "operator": "=",
-                    "attribute": "device__supplyer",
-                    "value": obj.id
-                })
+            if not sup_obj.count():
+                return {
+                    "pageSize": page_size,
+                    "totalCount": 0,
+                    "page": page,
+                    "items": [],
+                }
+            else:
+                for obj in sup_obj:
+                    admin_range.append({
+                        "operator": "=",
+                        "attribute": "device__supplyer",
+                        "value": obj.id
+                    })
         elif role == 2:
             add_obj = AddressAdmin.select().where(AddressAdmin.admin == admin_id)
-            for obj in add_obj:
-                admin_range.append({
-                    "operator": "=",
-                    "attribute": "device__address_type",
-                    "value": obj.address_id
-                })
+            if not add_obj.count():
+                return {
+                    "pageSize": page_size,
+                    "totalCount": 0,
+                    "page": page,
+                    "items": [],
+                }
+            else:
+                for obj in add_obj:
+                    admin_range.append({
+                        "operator": "=",
+                        "attribute": "device__address_type",
+                        "value": obj.address_id
+                    })
         elif role == 3:
             admin_add = []
-            add_obj = SponsorAddress.select().where(SponsorAddress.admin == admin_id)
-            for obj in add_obj:
-                admin_add.append({
-                    "operator": "=",
-                    "attribute": "device__address_type",
-                    "value": obj.address_id
-                })
-            query.append(admin_add)
-
             item_obj = SponsorItem.select().where(SponsorItem.admin == admin_id)
-            for obj in item_obj:
-                admin_range.append({
-                    "operator": "=",
-                    "attribute": "item",
-                    "value": obj.item_id
-                })
+            if not item_obj.count():
+                return {
+                    "pageSize": page_size,
+                    "totalCount": 0,
+                    "page": page,
+                    "items": [],
+                }
+            else:
+                for obj in item_obj:
+                    admin_range.append({
+                        "operator": "=",
+                        "attribute": "item",
+                        "value": obj.item_id
+                    })
+
+            add_obj = SponsorAddress.select().where(SponsorAddress.admin == admin_id)
+            if add_obj.count():
+                for obj in add_obj:
+                    admin_add.append({
+                        "operator": "=",
+                        "attribute": "device__address_type",
+                        "value": obj.address_id
+                    })
+                query.append(admin_add)
+
         query.append(admin_range)
 
         road_meta_data = {}
