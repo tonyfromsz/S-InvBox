@@ -3350,7 +3350,9 @@ class InvboxService(BaseService):
             "week": {
                 "sales_amount": 0,
                 "item_amount": 0,
-                "avg_amount": 0
+                "avg_amount": 0,
+                "sale_per_device": 0,
+                "item_per_device": 0
             },
             "year": {
                 "sales_amount": 0,
@@ -3358,8 +3360,17 @@ class InvboxService(BaseService):
                 "avg_amount": 0
             },
         }
+        query = [[
+            {
+                "operator": "是",
+                "attribute": "online",
+                "value": True
+            }
+        ]]
 
-        for zoom, date in date_params:
+        online_device = int(DeviceSelectorProxy(query).select().count())
+
+        for zoom, date in date_params.items():
             sale_qs = Order.select(fn.SUM(Order.pay_money).alias("sales_amount"),
                                    fn.SUM(Order.item_amount).alias("item_amount"))\
                 .where(Order.pay_status != 1,
@@ -3368,12 +3379,16 @@ class InvboxService(BaseService):
             if sale_qs.count() < 1:
                 return sales_stats
             else:
-                sales_amount = sale_qs.first().sales_amount
-                item_amount = sale_qs.first().item_amount
-                avg_amount = sales_amount / item_amount if item_amount else 0
+                sales_amount = int(sale_qs.first().sales_amount)
+                item_amount = int(sale_qs.first().item_amount)
+                avg_amount = int(sales_amount / item_amount) if item_amount else 0
                 sales_stats[zoom]["sales_amount"] = sales_amount
                 sales_stats[zoom]["item_amount"] = item_amount
                 sales_stats[zoom]["avg_amount"] = avg_amount
+            if zoom == "week":
+                print(online_device)
+                sales_stats[zoom]["sale_per_device"] = int(sales_amount / online_device) if online_device else 0
+                sales_stats[zoom]["item_per_device"] = int(item_amount / online_device) if online_device else 0
 
         return sales_stats
 
