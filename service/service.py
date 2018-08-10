@@ -3287,26 +3287,40 @@ class InvboxService(BaseService):
             }
         }
 
+        query = [[
+            {
+                "operator": "是",
+                "attribute": "online",
+                "value": True
+            }
+        ]]
+
+        online_device = int(DeviceSelectorProxy(query).select().count())
+
+        # device_online_qs = Device.select().where(Device.online is True)
         device_involved_qs = Device.select().where(Device.involved == 1)
-        device_online_qs = Device.select().where(Device.online is True)
         device_active_qs = Order.select(fn.Count(fn.Distinct(Order.device)).alias("active_device"))\
             .where(Order.created_at >= from_day,
                    Order.created_at <= now)
 
         involved_device_count = int(device_involved_qs.count()) if device_involved_qs.count() else 0
-        online_device_count = int(device_online_qs.count()) if device_online_qs.count() else 0
+        online_device_count = online_device
         active_device_count = int(device_active_qs.first().active_device) if device_active_qs.first().active_device else 0
+
+        online_device_rate = (float(online_device_count) / involved_device_count) \
+            if involved_device_count else 0
+        active_device_rate = (float(active_device_count) / online_device_count) \
+            if online_device_count else 0
+        nonactive_device_rate = float(online_device_count-active_device_count) / online_device_count \
+            if online_device_count else 0
 
         device_stats["involved_device"]["count"] = involved_device_count
         device_stats["online_device"]["count"] = online_device_count
-        device_stats["online_device"]["rate"] = (float(online_device_count) / involved_device_count) \
-            if involved_device_count else 0
+        device_stats["online_device"]["rate"] = "%.2f%%" % (online_device_rate * 100)
         device_stats["active_device"]["count"] = active_device_count
-        device_stats["active_device"]["rate"] = (float(active_device_count) / online_device_count) \
-            if online_device_count else 0
+        device_stats["active_device"]["rate"] = "%.2f%%" % (active_device_rate * 100)
         device_stats["nonactive_device"]["count"] = online_device_count - active_device_count
-        device_stats["nonactive_device"]["rate"] = float(online_device_count-active_device_count) / online_device_count \
-            if online_device_count else 0
+        device_stats["nonactive_device"]["rate"] = "%.2f%%" % (nonactive_device_rate * 100)
 
         return device_stats
 
