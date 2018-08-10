@@ -3231,26 +3231,31 @@ class InvboxService(BaseService):
                 "fansBuyRate": 0
             },
         }
-        for zoom, date in date_params:
+        for zoom, date in date_params.items():
             new_user_qs = User.select().where(User.created_at >= date,
                                               User.created_at <= now,
-                                              User.mobile == "")
+                                              User.mobile == "",
+                                              User.first_buy_at.is_null(False))
             new_fans_qs = User.select().where(User.created_at >= date,
                                               User.created_at <= now,
                                               User.mobile != "")
 
             fans_buy_qs = Order.select()\
-                .join(User)\
-                .where(User.mobile != "",
-                       User.created_at >= date,
-                       User.created_at <= now,
-                       Order.pay_status != 1)
+                .join(User, JOIN.LEFT_OUTER)\
+                .where(
+                Order.created_at >= date,
+                Order.created_at <= now,
+                Order.pay_status != 1,
+                User.mobile != "",
+            )
+            print(fans_buy_qs.count())
             total_buy_qs = Order.select() \
-                .join(User) \
-                .where(User.created_at >= date,
-                       User.created_at <= now,
+                .join(User, JOIN.LEFT_OUTER) \
+                .where(Order.created_at >= date,
+                       Order.created_at <= now,
                        Order.pay_status != 1)
-            fans_buy_rate = (float(fans_buy_qs) / int(total_buy_qs)) if int(total_buy_qs) else 0
+            print(total_buy_qs.count())
+            fans_buy_rate = (float(fans_buy_qs.count()) / int(total_buy_qs.count())) if int(total_buy_qs.count()) else 0
 
             user_stats[zoom]["newUsers"] = new_user_qs.count() or 0
             user_stats[zoom]["newFans"] = new_fans_qs.count() or 0
