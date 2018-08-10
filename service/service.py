@@ -6,7 +6,7 @@ import selector as slt
 import const as C
 
 from datetime import datetime as dte, timedelta
-from peewee import fn
+from peewee import fn, JOIN
 from util.rds import get_redis, RedisKeys
 from models import (Device, Supplyer, Admin, UserGroup, ApkVersion, Advertisement,
                     Video, Image, ADImage, ADVideo, Item, Road, ItemBrand, Redeem,
@@ -3134,11 +3134,11 @@ class InvboxService(BaseService):
         }
         for zoom, date in date_params.items():
             # 經過
-            flows_qs = DayDeviceStat.select()\
-                .join(Device)\
-                .where(DayDeviceStat.day >= date,
-                       DayDeviceStat.day <= now)\
-                .order_by(DayDeviceStat.flows)
+            flows_qs = DayDeviceStat.select(Device, DayDeviceStat)\
+                .join(Device, JOIN.LEFT_OUTER)\
+                .where(DayDeviceStat.created_at >= date,
+                       DayDeviceStat.created_at <= now)\
+                .order_by(DayDeviceStat.flows.desc())
             if flows_qs.count() >= 5:
                 flows_rank = 5
             else:
@@ -3147,17 +3147,18 @@ class InvboxService(BaseService):
             flows_list = []
             flows_device_list = []
             for obj in flows_qs:
-                flows_device_list.append(obj.name)
+                print(obj.device.name, obj.flows)
+                flows_device_list.append(obj.device.name)
                 flows_list.append(obj.flows)
             top_5_rank[zoom]["flows"]["device"] = flows_device_list[:flows_rank]
             top_5_rank[zoom]["flows"]["count"] = flows_list[:flows_rank]
 
             # 停留
-            stays_qs = DayDeviceStat.select() \
-                .join(Device) \
-                .where(DayDeviceStat.day >= date,
-                       DayDeviceStat.day <= now) \
-                .order_by(DayDeviceStat.stays)
+            stays_qs = DayDeviceStat.select(Device, DayDeviceStat) \
+                .join(Device, JOIN.LEFT_OUTER) \
+                .where(DayDeviceStat.created_at >= date,
+                       DayDeviceStat.created_at <= now) \
+                .order_by(DayDeviceStat.stays.desc())
             if stays_qs.count() >= 5:
                 stays_rank = 5
             else:
@@ -3166,28 +3167,30 @@ class InvboxService(BaseService):
             rank_stays_list = []
             rank_devive_name_list = []
 
-            # 點擊
             for obj in stays_qs:
-                rank_devive_name_list.append(obj.name)
+                print(obj.device.name, obj.stays)
+                rank_devive_name_list.append(obj.device.name)
                 rank_stays_list.append(obj.stays)
 
+            # 點擊
             top_5_rank[zoom]["stays"]["device"] = rank_devive_name_list[:stays_rank]
             top_5_rank[zoom]["stays"]["count"] = rank_stays_list[:stays_rank]
 
-            clicks_qs = DayDeviceStat.select() \
-                .join(Device) \
-                .where(DayDeviceStat.day >= date,
-                       DayDeviceStat.day <= now) \
-                .order_by(DayDeviceStat.clicks)
+            clicks_qs = DayDeviceStat.select(Device, DayDeviceStat) \
+                .join(Device, JOIN.LEFT_OUTER) \
+                .where(DayDeviceStat.created_at >= date,
+                       DayDeviceStat.created_at <= now) \
+                .order_by(DayDeviceStat.clicks.desc())
             if clicks_qs.count() >= 5:
                 rank = 5
             else:
                 rank = clicks_qs.count()
             rank_clicks_list = []
             rank_device_clicks_list = []
-            for i in range(rank):
-                rank_device_clicks_list.append(clicks_qs.name)
-                rank_clicks_list.append(clicks_qs.clicks)
+            for obj in clicks_qs:
+                print(obj.device.name, obj.clicks)
+                rank_device_clicks_list.append(obj.device.name)
+                rank_clicks_list.append(obj.clicks)
             top_5_rank[zoom]["clicks"]["device"] = rank_device_clicks_list[:rank]
             top_5_rank[zoom]["clicks"]["count"] = rank_clicks_list[:rank]
 
