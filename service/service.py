@@ -3386,9 +3386,10 @@ class InvboxService(BaseService):
                 sales_stats[zoom]["item_amount"] = item_amount
                 sales_stats[zoom]["avg_amount"] = avg_amount
             if zoom == "week":
-                print(online_device)
-                sales_stats[zoom]["sale_per_device"] = int(sales_amount / online_device) if online_device else 0
-                sales_stats[zoom]["item_per_device"] = int(item_amount / online_device) if online_device else 0
+                sale_per_device = (float(sales_amount) / online_device) if online_device else 0
+                item_per_device = (float(item_amount) / online_device) if online_device else 0
+                sales_stats[zoom]["sale_per_device"] = "%.2f" % sale_per_device
+                sales_stats[zoom]["item_per_device"] = "%.2f" % item_per_device
 
         return sales_stats
 
