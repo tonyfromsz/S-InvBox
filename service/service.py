@@ -2676,8 +2676,6 @@ class InvboxService(BaseService):
         result.update({"items": items})
         return result
 
-
-
     @transaction_rpc
     def add_account(self, name, mobile, password, role, admin_range, info_list=None):
         if Admin.select().where(Admin.mobile == mobile).count():
@@ -2962,3 +2960,570 @@ class InvboxService(BaseService):
                 }
                 # res.update(obj_admin.to_dict())
                 return res
+
+    @rpc
+    def dashboard_flow_volume(self):
+        # 現在
+        now = dte.now()
+        # 當日
+        from_day = dte(now.year, now.month, now.day, 0, 0, 0)
+        # 當周
+        week_first_day = now - timedelta(now.weekday())
+        from_week = dte(week_first_day.year, week_first_day.month, week_first_day.day, 0, 0, 0)
+        # 當年
+        from_year = dte(now.year, 1, 1, 0, 0, 0)
+
+        date_params = {
+            "today": from_day,
+            "week": from_week,
+            "year": from_year
+        }
+
+        flow_volume_date = {
+            "today": {
+                "flows": 0,
+                "stays": 0,
+                "clicks": 0,
+                "usersPay": 0,
+                "staysConversion": 0,
+                "clicksConversion": 0,
+                "payConversion": 0,
+                "startTime": "",
+                "endTime": ""
+            },
+            "week": {
+                "flows": 0,
+                "stays": 0,
+                "clicks": 0,
+                "usersPay": 0,
+                "staysConversion": 0,
+                "clicksConversion": 0,
+                "payConversion": 0,
+                "startTime": "",
+                "endTime": ""
+            },
+            "year": {
+                "flows": 0,
+                "stays": 0,
+                "clicks": 0,
+                "usersPay": 0,
+                "staysConversion": 0,
+                "clicksConversion": 0,
+                "payConversion": 0,
+                "startTime": "",
+                "endTime": ""
+            },
+            "avg_device": {
+                "flows": 0,
+                "stays": 0,
+                "clicks": 0,
+                "usersPay": 0,
+                "startTime": "",
+                "endTime": ""
+            }
+        }
+        # online_device = Device.select().where(Device.online is True).count()
+        query = [[
+            {
+                "operator": "是",
+                "attribute": "online",
+                "value": True
+            }
+        ]]
+
+        online_device = DeviceSelectorProxy(query).select().count()
+        print("online_device:", online_device)
+
+        for zoom, date in date_params.items():
+            qs = DayDeviceStat.select().where(DayDeviceStat.created_at >= date,
+                                              DayDeviceStat.created_at <= now)
+            total_qs = qs.select(
+                fn.sum(DayDeviceStat.flows).alias("total_flows"),
+                fn.sum(DayDeviceStat.stays).alias("total_stays"),
+                fn.sum(DayDeviceStat.clicks).alias("total_clicks"),
+                fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
+            )
+            flow_volume_date[zoom]["startTime"] = date.strftime("%Y-%m-%d %H:%M:%S")
+            flow_volume_date[zoom]["endTime"] = now.strftime("%Y-%m-%d %H:%M:%S")
+            if not total_qs.count():
+                continue
+            total = total_qs.first()
+
+            stays_conversion = (float(total.total_stays) / int(total.total_flows)) if int(total.total_flows) else 0
+            clicks_conversion = (float(total.total_clicks) / int(total.total_stays)) if int(total.total_stays) else 0
+            pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
+
+            flow_volume_date[zoom]["flows"] = int(total.total_flows)
+            flow_volume_date[zoom]["stays"] = int(total.total_stays)
+            flow_volume_date[zoom]["clicks"] = int(total.total_clicks)
+            flow_volume_date[zoom]["usersPay"] = int(total.total_users_pay)
+            flow_volume_date[zoom]["staysConversion"] = "%.2f%%" % (stays_conversion * 100)
+            flow_volume_date[zoom]["clicksConversion"] = "%.2f%%" % (clicks_conversion * 100)
+            flow_volume_date[zoom]["payConversion"] = "%.2f%%" % (pay_conversion * 100)
+
+            if zoom == "week" and online_device:
+                flow_volume_date["avg_device"]["flows"] = int(total.total_flows / online_device)
+                flow_volume_date["avg_device"]["stays"] = int(total.total_stays / online_device)
+                flow_volume_date["avg_device"]["clicks"] = int(total.total_clicks / online_device)
+                flow_volume_date["avg_device"]["usersPay"] = int(total.total_users_pay / online_device)
+                flow_volume_date["avg_device"]["startTime"] = date.strftime("%Y-%m-%d %H:%M:%S")
+                flow_volume_date["avg_device"]["endTime"] = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        return flow_volume_date
+
+    @rpc
+    def dashboard_flow_volume_rank(self):
+        # 現在
+        now = dte.now()
+        # 當日
+        from_day = dte(now.year, now.month, now.day, 0, 0, 0)
+        # 當周
+        week_first_day = now - timedelta(now.weekday())
+        from_week = dte(week_first_day.year, week_first_day.month, week_first_day.day, 0, 0, 0)
+        # 當年
+        from_year = dte(now.year, 1, 1, 0, 0, 0)
+
+        date_params = {
+            "today": from_day,
+            "week": from_week,
+            "year": from_year
+        }
+        top_5_rank = {
+            "today": {
+                "flows": {
+                    "device": [],
+                    "count": []
+                },
+                "stays": {
+                    "device": [],
+                    "count": []
+                },
+                "clicks": {
+                    "device": [],
+                    "count": []
+                }
+            },
+            "week": {
+                "flows": {
+                    "device": [],
+                    "count": []
+                },
+                "stays": {
+                    "device": [],
+                    "count": []
+                },
+                "clicks": {
+                    "device": [],
+                    "count": []
+                },
+            },
+            "year": {
+                "flows": {
+                    "device": [],
+                    "count": []
+                },
+                "stays": {
+                    "device": [],
+                    "count": []
+                },
+                "clicks": {
+                    "device": [],
+                    "count": []
+                },
+            },
+        }
+        for zoom, date in date_params.items():
+            # 經過
+            flows_qs = DayDeviceStat.select()\
+                .join(Device)\
+                .where(DayDeviceStat.day >= date,
+                       DayDeviceStat.day <= now)\
+                .order_by(DayDeviceStat.flows)
+            if flows_qs.count() >= 5:
+                flows_rank = 5
+            else:
+                flows_rank = flows_qs.count()
+
+            flows_list = []
+            flows_device_list = []
+            for obj in flows_qs:
+                flows_device_list.append(obj.name)
+                flows_list.append(obj.flows)
+            top_5_rank[zoom]["flows"]["device"] = flows_device_list[:flows_rank]
+            top_5_rank[zoom]["flows"]["count"] = flows_list[:flows_rank]
+
+            # 停留
+            stays_qs = DayDeviceStat.select() \
+                .join(Device) \
+                .where(DayDeviceStat.day >= date,
+                       DayDeviceStat.day <= now) \
+                .order_by(DayDeviceStat.stays)
+            if stays_qs.count() >= 5:
+                stays_rank = 5
+            else:
+                stays_rank = stays_qs.count()
+
+            rank_stays_list = []
+            rank_devive_name_list = []
+
+            # 點擊
+            for obj in stays_qs:
+                rank_devive_name_list.append(obj.name)
+                rank_stays_list.append(obj.stays)
+
+            top_5_rank[zoom]["stays"]["device"] = rank_devive_name_list[:stays_rank]
+            top_5_rank[zoom]["stays"]["count"] = rank_stays_list[:stays_rank]
+
+            clicks_qs = DayDeviceStat.select() \
+                .join(Device) \
+                .where(DayDeviceStat.day >= date,
+                       DayDeviceStat.day <= now) \
+                .order_by(DayDeviceStat.clicks)
+            if clicks_qs.count() >= 5:
+                rank = 5
+            else:
+                rank = clicks_qs.count()
+            rank_clicks_list = []
+            rank_device_clicks_list = []
+            for i in range(rank):
+                rank_device_clicks_list.append(clicks_qs.name)
+                rank_clicks_list.append(clicks_qs.clicks)
+            top_5_rank[zoom]["clicks"]["device"] = rank_device_clicks_list[:rank]
+            top_5_rank[zoom]["clicks"]["count"] = rank_clicks_list[:rank]
+
+        return top_5_rank
+
+    @rpc
+    def dashboard_user_stats(self):
+        # 現在
+        now = dte.now()
+        # 當日
+        from_day = dte(now.year, now.month, now.day, 0, 0, 0)
+        # 當周
+        week_first_day = now - timedelta(now.weekday())
+        from_week = dte(week_first_day.year, week_first_day.month, week_first_day.day, 0, 0, 0)
+        # 當年
+        from_year = dte(now.year, 1, 1, 0, 0, 0)
+
+        date_params = {
+            "today": from_day,
+            "week": from_week,
+            "year": from_year
+        }
+
+        user_stats = {
+            "today": {
+                "newUsers": 0,
+                "newFans": 0,
+                "fansBuyRate": 0
+            },
+            "week": {
+                "newUsers": 0,
+                "newFans": 0,
+                "fansBuyRate": 0
+            },
+            "year": {
+                "newUsers": 0,
+                "newFans": 0,
+                "fansBuyRate": 0
+            },
+        }
+        for zoom, date in date_params:
+            new_user_qs = User.select().where(User.created_at >= date,
+                                              User.created_at <= now,
+                                              User.mobile == "")
+            new_fans_qs = User.select().where(User.created_at >= date,
+                                              User.created_at <= now,
+                                              User.mobile != "")
+
+            fans_buy_qs = Order.select()\
+                .join(User)\
+                .where(User.mobile != "",
+                       User.created_at >= date,
+                       User.created_at <= now,
+                       Order.pay_status != 1)
+            total_buy_qs = Order.select() \
+                .join(User) \
+                .where(User.created_at >= date,
+                       User.created_at <= now,
+                       Order.pay_status != 1)
+            fans_buy_rate = (float(fans_buy_qs) / int(total_buy_qs)) if int(total_buy_qs) else 0
+
+            user_stats[zoom]["newUsers"] = new_user_qs.count() or 0
+            user_stats[zoom]["newFans"] = new_fans_qs.count() or 0
+            user_stats[zoom]["fansBuyRate"] = "%.2f%%" % (fans_buy_rate * 100)
+
+        return user_stats
+
+    @rpc
+    def dashboard_device_stats(self):
+        # 現在
+        now = dte.now()
+        # 當日
+        from_day = dte(now.year, now.month, now.day, 0, 0, 0)
+        device_stats = {
+            "involved_device": {
+                "count": 0
+            },
+            "online_device": {
+                "count": 0,
+                'rate': 0
+            },
+            "active_device": {
+                "count": 0,
+                'rate': 0
+            },
+            "nonactive_device": {
+                "count": 0,
+                'rate': 0
+            }
+        }
+
+        device_involved_qs = Device.select().where(Device.involved == 1)
+        device_online_qs = Device.select().where(Device.online is True)
+        device_active_qs = Order.select(fn.Count(fn.Distinct(Order.device)).alias("active_device"))\
+            .where(Order.created_at >= from_day,
+                   Order.created_at <= now)
+
+        involved_device_count = int(device_involved_qs.count()) if device_involved_qs.count() else 0
+        online_device_count = int(device_online_qs.count()) if device_online_qs.count() else 0
+        active_device_count = int(device_active_qs.first().active_device) if device_active_qs.first().active_device else 0
+
+        device_stats["involved_device"]["count"] = involved_device_count
+        device_stats["online_device"]["count"] = online_device_count
+        device_stats["online_device"]["rate"] = (float(online_device_count) / involved_device_count) \
+            if involved_device_count else 0
+        device_stats["active_device"]["count"] = active_device_count
+        device_stats["active_device"]["rate"] = (float(active_device_count) / online_device_count) \
+            if online_device_count else 0
+        device_stats["nonactive_device"]["count"] = online_device_count - active_device_count
+        device_stats["nonactive_device"]["rate"] = float(online_device_count-active_device_count) / online_device_count \
+            if online_device_count else 0
+
+        return device_stats
+
+    @rpc
+    def dashboard_sales_stats(self):
+        # 現在
+        now = dte.now()
+        # 當日
+        from_day = dte(now.year, now.month, now.day, 0, 0, 0)
+        # 當周
+        week_first_day = now - timedelta(now.weekday())
+        from_week = dte(week_first_day.year, week_first_day.month, week_first_day.day, 0, 0, 0)
+        # 當年
+        from_year = dte(now.year, 1, 1, 0, 0, 0)
+
+        date_params = {
+            "today": from_day,
+            "week": from_week,
+            "year": from_year
+        }
+        sales_stats = {
+            "today": {
+                "sales_amount": 0,
+                "item_amount": 0,
+                "avg_amount": 0
+            },
+            "week": {
+                "sales_amount": 0,
+                "item_amount": 0,
+                "avg_amount": 0
+            },
+            "year": {
+                "sales_amount": 0,
+                "item_amount": 0,
+                "avg_amount": 0
+            },
+        }
+
+        for zoom, date in date_params:
+            sale_qs = Order.select(fn.SUM(Order.pay_money).alias("sales_amount"),
+                                   fn.SUM(Order.item_amount).alias("item_amount"))\
+                .where(Order.pay_status != 1,
+                       Order.created_at >= date,
+                       Order.created_at <= now)
+            if sale_qs.count() < 1:
+                return sales_stats
+            else:
+                sales_amount = sale_qs.first().sales_amount
+                item_amount = sale_qs.first().item_amount
+                avg_amount = sales_amount / item_amount if item_amount else 0
+                sales_stats[zoom]["sales_amount"] = sales_amount
+                sales_stats[zoom]["item_amount"] = item_amount
+                sales_stats[zoom]["avg_amount"] = avg_amount
+
+        return sales_stats
+
+    @rpc
+    def dashboard_item_device_rank(self):
+        # 現在
+        now = dte.now()
+        # 當日
+        from_day = dte(now.year, now.month, now.day, 0, 0, 0)
+        # 當周
+        week_first_day = now - timedelta(now.weekday())
+        from_week = dte(week_first_day.year, week_first_day.month, week_first_day.day, 0, 0, 0)
+        # 當年
+        from_year = dte(now.year, 1, 1, 0, 0, 0)
+
+        date_params = {
+            "today": from_day,
+            "week": from_week,
+            "year": from_year
+        }
+        item_device_rank = {
+            "today": {
+                "itemSales": [],
+                "topSalesItems": [],
+                "itemAmount": [],
+                "topAmountItems": [],
+                "deviceSales": [],
+                "topSalesDevice": [],
+                "deviceAmount": [],
+                "topAmountDevices": [],
+                "userBuys": [],
+                "topUsers": []
+            },
+            "week": {
+                "itemSales": [],
+                "topSalesItems": [],
+                "itemAmount": [],
+                "topAmountItems": [],
+                "deviceSales": [],
+                "topSalesDevice": [],
+                "deviceAmount": [],
+                "topAmountDevices": [],
+                "userBuys": [],
+                "topUsers": []
+            },
+            "year": {
+                "itemSales": [],
+                "topSalesItems": [],
+                "itemAmount": [],
+                "topAmountItems": [],
+                "deviceSales": [],
+                "topSalesDevice": [],
+                "deviceAmount": [],
+                "topAmountDevices": [],
+                "userBuys": [],
+                "topUsers": []
+            }
+        }
+        for zoom, date in date_params.items():
+            # 產品銷售金額排行
+            sale_qs = Order.select(Item.name, fn.SUM(Order.pay_money).alias("item_sale"))\
+                .join(Item)\
+                .where(Order.created_at >= date,
+                       Order.created_at <= now,
+                       Order.redeem is None)\
+                .group_by(Order.item)\
+                .order_by(fn.SUM(Order.pay_money))
+
+            if sale_qs.count() >= 5:
+                sale_rank = 5
+            else:
+                sale_rank = sale_qs.count()
+
+            sale_list = []
+            top_sale_item_list = []
+            for obj in sale_qs:
+                sale_list.append(obj.item_sale)
+                top_sale_item_list.append(obj.name)
+
+            item_device_rank[zoom]["itemSales"] = sale_list[:sale_rank]
+            item_device_rank[zoom]["topSalesItems"] = top_sale_item_list[:sale_rank]
+
+            # 產品銷售量排行
+            amount_qs = Order.select(Item.name, fn.SUM(Order.item_amount).alias("item_amount"))\
+                .join(Item)\
+                .where(Order.created_at >= date,
+                       Order.created_at <= now,
+                       Order.redeem is None)\
+                .group_by(Order.item)\
+                .order_by(fn.SUM(Order.item_amount))
+
+            if amount_qs.count() >= 5:
+                amount_rank = 5
+            else:
+                amount_rank = sale_qs.count()
+
+            amount_list = []
+            top_amount_item_list = []
+            for obj in amount_qs:
+                amount_list.append(obj.item_amount)
+                top_amount_item_list.append(obj.name)
+
+            item_device_rank[zoom]["itemAmount"] = amount_list[:amount_rank]
+            item_device_rank[zoom]["topAmountItems"] = top_amount_item_list[:amount_rank]
+
+            # 單機銷售金額排行
+            sale_qs = Order.select(Device.name, fn.SUM(Order.pay_money).alias("device_sale")) \
+                .join(Device) \
+                .where(Order.created_at >= date,
+                       Order.created_at <= now,
+                       Order.redeem is None) \
+                .group_by(Order.device) \
+                .order_by(fn.SUM(Order.pay_money))
+
+            if sale_qs.count() >= 5:
+                sale_rank = 5
+            else:
+                sale_rank = sale_qs.count()
+
+            sale_list = []
+            top_sale_device_list = []
+            for obj in sale_qs:
+                sale_list.append(obj.device_sale)
+                top_sale_device_list.append(obj.name)
+
+            item_device_rank[zoom]["deviceSales"] = sale_list[:sale_rank]
+            item_device_rank[zoom]["topSalesItems"] = top_sale_device_list[:sale_rank]
+
+            # 單機銷售量排行
+            amount_qs = Order.select(Device.name, fn.SUM(Order.pay_money).alias("device_amount")) \
+                .join(Device) \
+                .where(Order.created_at >= date,
+                       Order.created_at <= now,
+                       Order.redeem is None) \
+                .group_by(Order.device) \
+                .order_by(fn.SUM(Order.pay_money))
+
+            if amount_qs.count() >= 5:
+                amount_rank = 5
+            else:
+                amount_rank = sale_qs.count()
+
+            amount_list = []
+            top_amount_device_list = []
+            for obj in amount_qs:
+                amount_list.append(obj.item_amount)
+                top_amount_device_list.append(obj.name)
+
+            item_device_rank[zoom]["deviceAmount"] = amount_list[:amount_rank]
+            item_device_rank[zoom]["topAmountDevices"] = top_amount_device_list[:amount_rank]
+
+            # 用戶
+            user_qs = Order.select(User.username, fn.COUNT(Order.id).alias("users_buys")) \
+                .join(User) \
+                .where(Order.created_at >= date,
+                       Order.created_at <= now,
+                       Order.redeem is None) \
+                .group_by(Order.user) \
+                .order_by(fn.COUNT(Order.id))
+
+            if amount_qs.count() >= 5:
+                user_rank = 5
+            else:
+                user_rank = sale_qs.count()
+
+            buy_list = []
+            top_user_list = []
+            for obj in user_qs:
+                buy_list.append(obj.users_buys)
+                top_user_list.append(obj.username)
+
+            item_device_rank[zoom]["userBuys"] = buy_list[:user_rank]
+            item_device_rank[zoom]["topUsers"] = top_user_list[:user_rank]
+
+        return item_device_rank
