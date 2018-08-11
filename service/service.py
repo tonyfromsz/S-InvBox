@@ -3450,116 +3450,123 @@ class InvboxService(BaseService):
         }
         for zoom, date in date_params.items():
             # 產品銷售金額排行
-            sale_qs = Order.select(Item.name, fn.SUM(Order.pay_money).alias("item_sale"))\
+            sale_qs = Order.select(Item, fn.SUM(Order.pay_money).alias("item_sale"))\
                 .join(Item)\
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem is None)\
+                       Order.redeem.is_null(True)
+                       )\
                 .group_by(Order.item)\
-                .order_by(fn.SUM(Order.pay_money))
+                .order_by(fn.SUM(Order.pay_money).desc())
 
             if sale_qs.count() >= 5:
                 sale_rank = 5
             else:
                 sale_rank = sale_qs.count()
 
+            print(sale_qs.count())
+
             sale_list = []
             top_sale_item_list = []
             for obj in sale_qs:
-                sale_list.append(obj.item_sale)
-                top_sale_item_list.append(obj.name)
+                sale_list.append(float(obj.item_sale))
+                top_sale_item_list.append(str(obj.item.name))
 
             item_device_rank[zoom]["itemSales"] = sale_list[:sale_rank]
             item_device_rank[zoom]["topSalesItems"] = top_sale_item_list[:sale_rank]
 
             # 產品銷售量排行
-            amount_qs = Order.select(Item.name, fn.SUM(Order.item_amount).alias("item_amount"))\
+            amount_qs = Order.select(Item, fn.SUM(Order.item_amount).alias("item_amount"))\
                 .join(Item)\
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem is None)\
+                       Order.redeem.is_null(True))\
                 .group_by(Order.item)\
-                .order_by(fn.SUM(Order.item_amount))
-
+                .order_by(fn.SUM(Order.item_amount).desc())
             if amount_qs.count() >= 5:
                 amount_rank = 5
             else:
                 amount_rank = sale_qs.count()
 
+            print(amount_qs.count())
             amount_list = []
             top_amount_item_list = []
             for obj in amount_qs:
-                amount_list.append(obj.item_amount)
-                top_amount_item_list.append(obj.name)
+                amount_list.append(float(obj.item_amount))
+                top_amount_item_list.append(str(obj.item.name))
 
             item_device_rank[zoom]["itemAmount"] = amount_list[:amount_rank]
             item_device_rank[zoom]["topAmountItems"] = top_amount_item_list[:amount_rank]
 
             # 單機銷售金額排行
-            sale_qs = Order.select(Device.name, fn.SUM(Order.pay_money).alias("device_sale")) \
+            sale_qs = Order.select(Device, fn.SUM(Order.pay_money).alias("device_sale")) \
                 .join(Device) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem is None) \
+                       Order.redeem.is_null(True)) \
                 .group_by(Order.device) \
-                .order_by(fn.SUM(Order.pay_money))
+                .order_by(fn.SUM(Order.pay_money).desc())
 
             if sale_qs.count() >= 5:
                 sale_rank = 5
             else:
                 sale_rank = sale_qs.count()
 
+            print(sale_qs.count())
             sale_list = []
             top_sale_device_list = []
             for obj in sale_qs:
-                sale_list.append(obj.device_sale)
-                top_sale_device_list.append(obj.name)
+                sale_list.append(float(obj.device_sale))
+                top_sale_device_list.append(str(obj.device.name))
 
             item_device_rank[zoom]["deviceSales"] = sale_list[:sale_rank]
-            item_device_rank[zoom]["topSalesItems"] = top_sale_device_list[:sale_rank]
+            item_device_rank[zoom]["topSalesDevice"] = top_sale_device_list[:sale_rank]
 
             # 單機銷售量排行
-            amount_qs = Order.select(Device.name, fn.SUM(Order.pay_money).alias("device_amount")) \
+            amount_qs = Order.select(Device, fn.SUM(Order.pay_money).alias("device_amount")) \
                 .join(Device) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem is None) \
+                       Order.redeem.is_null(True)) \
                 .group_by(Order.device) \
-                .order_by(fn.SUM(Order.pay_money))
+                .order_by(fn.SUM(Order.pay_money).desc())
 
             if amount_qs.count() >= 5:
                 amount_rank = 5
             else:
                 amount_rank = sale_qs.count()
 
+            print(amount_qs.count())
             amount_list = []
             top_amount_device_list = []
             for obj in amount_qs:
-                amount_list.append(obj.item_amount)
-                top_amount_device_list.append(obj.name)
+                amount_list.append(float(obj.device_amount))
+                top_amount_device_list.append(str(obj.device.name))
 
             item_device_rank[zoom]["deviceAmount"] = amount_list[:amount_rank]
             item_device_rank[zoom]["topAmountDevices"] = top_amount_device_list[:amount_rank]
 
             # 用戶
-            user_qs = Order.select(User.username, fn.COUNT(Order.id).alias("users_buys")) \
+            user_qs = Order.select(User, fn.COUNT(Order.id).alias("users_buys")) \
                 .join(User) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem is None) \
+                       Order.redeem.is_null(True)) \
                 .group_by(Order.user) \
-                .order_by(fn.COUNT(Order.id))
+                .order_by(fn.COUNT(Order.id).desc())
 
             if amount_qs.count() >= 5:
                 user_rank = 5
             else:
                 user_rank = sale_qs.count()
 
+            print(amount_qs.count())
+
             buy_list = []
             top_user_list = []
             for obj in user_qs:
-                buy_list.append(obj.users_buys)
-                top_user_list.append(obj.username)
+                buy_list.append(float(obj.users_buys))
+                top_user_list.append(str(obj.user.username))
 
             item_device_rank[zoom]["userBuys"] = buy_list[:user_rank]
             item_device_rank[zoom]["topUsers"] = top_user_list[:user_rank]
