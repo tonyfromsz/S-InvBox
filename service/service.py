@@ -3016,7 +3016,7 @@ class InvboxService(BaseService):
             d = {
                 "day": obj.day,
                 "device": obj.device_id,
-                "address_type": obj.device.address_type_id,
+                "address_type": obj.device.address_type.name,
                 "flows": obj.flows,
                 "stays": obj.stays,
                 "clicks": obj.clicks,
