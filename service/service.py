@@ -3488,7 +3488,7 @@ class InvboxService(BaseService):
             else:
                 amount_rank = sale_qs.count()
 
-            print(amount_qs.count())
+            # print(amount_qs.count())
             amount_list = []
             top_amount_item_list = []
             for obj in amount_qs:
@@ -3512,7 +3512,7 @@ class InvboxService(BaseService):
             else:
                 sale_rank = sale_qs.count()
 
-            print(sale_qs.count())
+            # print(sale_qs.count())
             sale_list = []
             top_sale_device_list = []
             for obj in sale_qs:
@@ -3536,7 +3536,7 @@ class InvboxService(BaseService):
             else:
                 amount_rank = sale_qs.count()
 
-            print(amount_qs.count())
+            # print(amount_qs.count())
             amount_list = []
             top_amount_device_list = []
             for obj in amount_qs:
@@ -3560,13 +3560,13 @@ class InvboxService(BaseService):
             else:
                 user_rank = sale_qs.count()
 
-            print(amount_qs.count())
+            # print(amount_qs.count())
 
             buy_list = []
             top_user_list = []
             for obj in user_qs:
                 buy_list.append(float(obj.users_buys))
-                top_user_list.append(str(obj.id))
+                top_user_list.append(obj.user.id)
 
             item_device_rank[zoom]["userBuys"] = buy_list[:user_rank]
             item_device_rank[zoom]["topUsers"] = top_user_list[:user_rank]
