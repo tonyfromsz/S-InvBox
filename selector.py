@@ -474,5 +474,6 @@ class DayDeviceStatProxy(SelectorProxy):
     attribute_selectors = {
         "device": ("设备编号", IDSelector),
         "device__address_type": ("场地", IDSelector),
+        "create_at": ("时间", DateSelector),
 
     }
