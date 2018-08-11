@@ -3464,7 +3464,7 @@ class InvboxService(BaseService):
             else:
                 sale_rank = sale_qs.count()
 
-            print(sale_qs.count())
+            # print(sale_qs.count())
 
             sale_list = []
             top_sale_item_list = []
