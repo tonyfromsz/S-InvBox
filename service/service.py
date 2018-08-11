@@ -3566,9 +3566,71 @@ class InvboxService(BaseService):
             top_user_list = []
             for obj in user_qs:
                 buy_list.append(float(obj.users_buys))
-                top_user_list.append(str(obj.user.username))
+                top_user_list.append(str(obj.id))
 
             item_device_rank[zoom]["userBuys"] = buy_list[:user_rank]
             item_device_rank[zoom]["topUsers"] = top_user_list[:user_rank]
 
         return item_device_rank
+
+    @rpc
+    def dashboard_pay_conversion_trend(self):
+        now = dte.now()
+        # 當周
+        week_first_day = now - timedelta(now.weekday())
+        from_week = dte(week_first_day.year, week_first_day.month, week_first_day.day, 0, 0, 0)
+        from_last_week = from_week - timedelta(days=7)
+
+        pay_conversion_trend = {
+            "lastWeekTrend": [],
+            "thisWeekTrend": [],
+            "lastWeekDate": [],
+            "thisWeekDate": []
+        }
+
+        for day in range(7):
+            # print(day)
+            from_time = from_last_week + timedelta(days=day)
+            to_time = from_last_week + timedelta(days=day+1)
+            pay_conversion_trend["lastWeekDate"].append(from_time.strftime("%m-%d"))
+            qs = DayDeviceStat.select().where(DayDeviceStat.created_at >= from_time,
+                                              DayDeviceStat.created_at <= to_time)
+            total_qs = qs.select(
+                fn.sum(DayDeviceStat.clicks).alias("total_clicks"),
+                fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
+            )
+            if not total_qs.count():
+                pay_conversion_trend["lastWeekTrend"].append(None)
+                continue
+            total = total_qs.first()
+            if not total.total_users_pay or not total.total_clicks:
+                pay_conversion_trend["lastWeekTrend"].append("%.2f%%" % 0)
+            else:
+                pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
+                pay_conversion_trend["lastWeekTrend"].append("%.2f%%" % (pay_conversion * 100))
+
+            # 本周
+            from_this_time = from_week + timedelta(days=day)
+            to_this_time = from_week + timedelta(days=day + 1)
+            # print(from_time, to_time)
+            pay_conversion_trend["thisWeekDate"].append(from_this_time.strftime("%m-%d"))
+
+            qs = DayDeviceStat.select().where(DayDeviceStat.created_at >= from_this_time,
+                                              DayDeviceStat.created_at <= to_this_time)
+            total_qs = qs.select(
+                fn.sum(DayDeviceStat.clicks).alias("total_clicks"),
+                fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
+            )
+            if not total_qs.count():
+                pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % 0)
+                continue
+            total = total_qs.first()
+            if not total.total_users_pay or not total.total_clicks:
+                pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % 0)
+            else:
+                pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
+                pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % (pay_conversion * 100))
+                # print("total_users_pay", total.total_users_pay)
+                # print("total_clicks", int(total.total_clicks))
+
+        return pay_conversion_trend
