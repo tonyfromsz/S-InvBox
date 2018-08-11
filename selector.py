@@ -2,7 +2,7 @@
 
 from models import User, Item, ItemBrand, ItemCategory, Device, Order, Road
 from models import Redeem, Supplyer, AddressType, RedeemActivity, VoiceActivity
-from models import VoiceWord, SupplyList
+from models import VoiceWord, SupplyList, DayDeviceStat
 from datetime import datetime, timedelta
 from const import (RoadStatusMsg, FaultMsg, OrderStatusMsg, RedeemStatusMsg,
                    SupplyStatusMsg)
@@ -28,6 +28,7 @@ MODEL_NAMES = {
     "supplylist": SupplyList,
     ("redeem", "activity"): RedeemActivity,
     ("voiceword", "activity"): VoiceActivity,
+    "daydevicestat": DayDeviceStat
 }
 
 
@@ -464,4 +465,14 @@ class SupplyListSelectorProxy(SelectorProxy):
     name = "supplylist"
     attribute_selectors = {
         "status": ("配货状态", IDSelector),
+    }
+
+
+class DayDeviceStatProxy(SelectorProxy):
+
+    name = "daydevicestat"
+    attribute_selectors = {
+        "device": ("设备编号", IDSelector),
+        "device__address_type": ("场地", IDSelector),
+
     }

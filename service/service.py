@@ -19,7 +19,8 @@ from base import BaseService, rpc, transaction_rpc
 from selector import (UserSelectorProxy, SelectorProxy, ItemSelectorProxy,
                       ItemBrandSelectorProxy, ItemCategorySelectorProxy,
                       OrderSelectorProxy, DeviceSelectorProxy, RoadSelectorProxy,
-                      RedeemSelectorProxy, VoiceWordSelectorProxy, AdminSelectorProxy)
+                      RedeemSelectorProxy, VoiceWordSelectorProxy, AdminSelectorProxy,
+                      DayDeviceStatProxy)
 from const import (OrderStatus, PayStatus, PayType, SupplyStatus, RedeemStatus, RoadStatus)
 from pay.manager import PayManager
 from biz import OrderBiz, DeviceBiz, MarktingBiz
@@ -2960,6 +2961,79 @@ class InvboxService(BaseService):
                 }
                 # res.update(obj_admin.to_dict())
                 return res
+
+    @rpc
+    def get_flow_stats(self, page=1, base_url="", page_size=10, query=[], export=False, admin_info=None):
+        role = admin_info.get("role")
+        admin_id = admin_info.get("id")
+        # print(query)
+
+        if role == 3:
+            check_item = SponsorItem.select().where(SponsorItem.admin == admin_id)
+            if not check_item.count():
+                return {
+                    "pageSize": page_size,
+                    "totalCount": 0,
+                    "page": page,
+                    "items": {},
+                }
+            else:
+                item_list = []
+                for obj in check_item:
+                    item_list.append(obj.item_id)
+
+                check_device = Road.select(fn.Distinct(Road.device)).where(Road.item.in_(item_list))
+                if not check_device.count():
+                    return {
+                        "pageSize": page_size,
+                        "totalCount": 0,
+                        "page": page,
+                        "items": {},
+                }
+                else:
+                    device_list = []
+                    for obj in check_device:
+                        print(obj.device_id)
+                        device_list.append({
+                            "operator": "=",
+                            "attribute": "device",
+                            "value": obj.device_id
+                        })
+                        query.append(device_list)
+
+            check_address = SponsorAddress.select().where(SponsorAddress.admin == admin_id)
+            if check_address.count():
+                address_list = []
+                for obj in check_address:
+                    address_list.append({
+                        "operator": "=",
+                        "attribute": "device__address_type",
+                        "value": obj.address_id
+                    })
+                query.append(address_list)
+
+        def _parser(obj):
+            d = {
+                "day": obj.day,
+                "device": obj.device_id,
+                "address_type": obj.device.address_type_id,
+                "flows": obj.flows,
+                "stays": obj.stays,
+                "clicks": obj.clicks,
+            }
+            return d
+
+        if not export:
+            return self.do_page(
+                qs=DayDeviceStatProxy(query).select(),
+                page=page,
+                item_parser=_parser
+            )
+        else:
+            return self.do_export(
+                qs=DayDeviceStatProxy(query).select(),
+                item_parser=_parser
+            )
 
     @rpc
     def dashboard_flow_volume(self):
