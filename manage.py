@@ -14,6 +14,7 @@ from nameko.runners import ServiceRunner
 from config import config
 from log import init_logger
 from service.base import BaseService
+from service.service import InvboxService
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -30,8 +31,9 @@ class Command(object):
             eventlet.spawn_n(runner.stop)
 
         runner = ServiceRunner(config=config.to_dict())
-        for service_cls in BaseService.__subclasses__():
-            runner.add_service(service_cls)
+        # for service_cls in BaseService.__subclasses__():
+        #     runner.add_service(service_cls)
+        runner.add_service(InvboxService)
 
         signal.signal(signal.SIGTERM, _shutdown)
         runner.start()
@@ -75,7 +77,7 @@ class Command(object):
 
 
 if __name__ == "__main__":
-    # autodiscover.autodiscover("./service")
+    autodiscover.autodiscover("./service")
     init_logger(level=config.log_level, path=config.log_path)
     logging.getLogger("peewee").setLevel(getattr(logging, config.log_level.upper()))
     fire.Fire(Command)

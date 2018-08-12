@@ -1142,8 +1142,8 @@ class InvboxService(BaseService):
                     "address": device.address_type.id
                 },
                 "redeem": {
-                    "id": redeem.id,
-                    "code": redeem.code
+                    "id": None if not redeem else redeem.id,
+                    "code": None if not redeem else redeem.code
                 },
                 "road": {
                     "id": road.id,
