@@ -24,7 +24,7 @@ from selector import (UserSelectorProxy, SelectorProxy, ItemSelectorProxy,
 from const import (OrderStatus, PayStatus, PayType, SupplyStatus, RedeemStatus, RoadStatus)
 from pay.manager import PayManager
 from biz import OrderBiz, DeviceBiz, MarktingBiz
-# from sms.helper import SMSHelper
+from sms.helper import SMSHelper
 from entrypoint import distributed_timer
 
 logger = logging.getLogger()
@@ -3704,7 +3704,5 @@ class InvboxService(BaseService):
             else:
                 pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
                 pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % (pay_conversion * 100))
-                # print("total_users_pay", total.total_users_pay)
-                # print("total_clicks", int(total.total_clicks))
 
         return pay_conversion_trend
