@@ -1682,8 +1682,8 @@ class InvboxService(BaseService):
                     "name": item.name,
                 } if item else {},
                 "amount": obj.amount,
-                # "limit": road_meta_list[int(obj.no) - 1]["upper_limit"],
-                "limit": 0,   # 测试用
+                "limit": road_meta_list[int(obj.no) - 1]["upper_limit"],
+                # "limit": 0,   # 测试用
                 "status": obj.status_msg,
                 "price": obj.price or getattr(item, "basic_price", 0),
                 "thumbnails": [o.to_dict(base_url=base_url) for o in obj.thumbnails or getattr(item, "thumbnails", [])],
@@ -3361,21 +3361,27 @@ class InvboxService(BaseService):
             }
         }
 
-        query = [[
-            {
-                "operator": "是",
-                "attribute": "online",
-                "value": True
-            }
-        ]]
-
-        online_device = int(DeviceSelectorProxy(query).select().count())
+        # query = [[
+        #     {
+        #         "operator": "是",
+        #         "attribute": "online",
+        #         "value": True
+        #     }
+        # ]]
+        #
+        # online_device = int(DeviceSelectorProxy(query).select().count())
+        online_device = Device.select()\
+            .where(Device.involved == 1,
+                   Device.heartbeat_at >= dte(now.year, now.month, now.day, 0, 0, 0))\
+            .count()
 
         # device_online_qs = Device.select().where(Device.online is True)
         device_involved_qs = Device.select().where(Device.involved == 1)
         device_active_qs = Order.select(fn.Count(fn.Distinct(Order.device)).alias("active_device"))\
             .where(Order.created_at >= from_day,
-                   Order.created_at <= now)
+                   Order.created_at <= now,
+                   Order.status != 1
+                   )
 
         involved_device_count = int(device_involved_qs.count()) if device_involved_qs.count() else 0
         online_device_count = online_device
@@ -3442,11 +3448,15 @@ class InvboxService(BaseService):
             }
         ]]
 
-        online_device = int(DeviceSelectorProxy(query).select().count())
+        # online_device = int(DeviceSelectorProxy(query).select().count())
 
         for zoom, date in date_params.items():
+            online_device = Device.select() \
+                .where(Device.involved == 1,
+                       Device.heartbeat_at >= date)\
+                .count()
             sale_qs = Order.select(fn.SUM(Order.pay_money).alias("sales_amount"),
-                                   fn.SUM(Order.item_amount).alias("item_amount"))\
+                                   fn.SUM(Order.item_amount).alias("item_amount")) \
                 .where(Order.pay_status != 1,
                        Order.created_at >= date,
                        Order.created_at <= now)
@@ -3528,7 +3538,8 @@ class InvboxService(BaseService):
                 .join(Item)\
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem.is_null(True)
+                       Order.redeem.is_null(True),
+                       Order.status != 1
                        )\
                 .group_by(Order.item)\
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3554,7 +3565,9 @@ class InvboxService(BaseService):
                 .join(Item)\
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem.is_null(True))\
+                       Order.redeem.is_null(True),
+                       Order.status != 1
+                       )\
                 .group_by(Order.item)\
                 .order_by(fn.SUM(Order.item_amount).desc())
             if amount_qs.count() >= 5:
@@ -3577,7 +3590,9 @@ class InvboxService(BaseService):
                 .join(Device) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem.is_null(True)) \
+                       Order.redeem.is_null(True),
+                       Order.status != 1
+                       ) \
                 .group_by(Order.device) \
                 .order_by(fn.SUM(Order.pay_money).desc())
 
@@ -3601,7 +3616,9 @@ class InvboxService(BaseService):
                 .join(Device) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem.is_null(True)) \
+                       Order.redeem.is_null(True),
+                       Order.status != 1
+                       ) \
                 .group_by(Order.device) \
                 .order_by(fn.SUM(Order.pay_money).desc())
 
@@ -3625,7 +3642,9 @@ class InvboxService(BaseService):
                 .join(User) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.redeem.is_null(True)) \
+                       Order.redeem.is_null(True),
+                       Order.status != 1
+                       ) \
                 .group_by(Order.user) \
                 .order_by(fn.COUNT(Order.id).desc())
 
