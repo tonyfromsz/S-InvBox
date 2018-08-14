@@ -10,11 +10,11 @@ import time
 from models import SMSHistory
 from util import thread_call_out
 
-LOGIN_VALID_CODE = "SMS_123672353"
-SUPPLY_NOTIFY_CODE = "SMS_133180240"
-LACK_ITEM_WARNING = "SMS_133155829"
-FINSH_SUPPLY_CODE = "SMS_133155255"
-REDEEM_CREATE_CODE = "SMS_133155266"
+LOGIN_VALID_CODE = "SMS_138690015"
+SUPPLY_NOTIFY_CODE = "SMS_139981231"
+LACK_ITEM_WARNING = "SMS_139981244"
+FINSH_SUPPLY_CODE = "SMS_139976197"
+REDEEM_CREATE_CODE = "SMS_139971026"
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class SMSHelper(object):
                          channel=C.SMSChannel.ALI)
         obj.save()
 
-        res = alisms.send_sms(obj.id, mobile, "阿西莫夫", tpl_code,
+        res = alisms.send_sms(obj.id, mobile, "小粉盒", tpl_code,
                               template_param=json.dumps(data))
         res = json.loads(res)
 
@@ -77,14 +77,22 @@ class SMSHelper(object):
         thread_call_out(SMSHelper.refresh, smsobj.id, sleep=10)
         return smsobj
 
+    def send_wechat_message(self, mobile):
+        "发送微信手机验证短信"
+
+        code = "%06d" % random.randrange(100001, 999999)
+        smsobj = self._send_sms(mobile, LOGIN_VALID_CODE, {"code": code})
+        thread_call_out(SMSHelper.refresh, smsobj.id, sleep=10)
+        return smsobj
+
     def send_supply_message(self, device, supplylist):
         "配货通知"
         supplyer = device.supplyer
         params = {
-            "no": supplylist.no,
-            "device": device.name,
+            "list": supplylist.no,
+            "equipment": device.name,
             "address": device.address,
-            "region": "%s %s %s" % (device.province, device.city, device.district)
+            "location": "%s %s %s" % (device.province, device.city, device.district)
         }
 
         smsobj = self._send_sms(supplyer.mobile, SUPPLY_NOTIFY_CODE, params)
@@ -113,9 +121,9 @@ class SMSHelper(object):
         region = "%s %s %s" % (device.province, device.city, device.district)
 
         params = {
-            "address": "".join([region, address]),
-            "device": device.name,
-            "item": item_names
+            "location": "".join([region, address]),
+            "equipment": device.name,
+            "product": item_names
         }
 
         smsobj = self._send_sms(supplyer.mobile, LACK_ITEM_WARNING, params)
@@ -126,7 +134,7 @@ class SMSHelper(object):
         supplyer = supplylist.device.supplyer
 
         params = {
-            "no": supplylist.no,
+            "list": supplylist.no,
         }
 
         smsobj = self._send_sms(supplyer.mobile, FINSH_SUPPLY_CODE, params)
@@ -136,9 +144,9 @@ class SMSHelper(object):
     def send_redeem_message(self, redeem):
         "TODO 改成异步"
         params = {
-            "user": redeem.user.mobile,
+            "phone": redeem.user.mobile,
             "code": redeem.code,
-            "item": redeem.activity.item.name,
+            "product": redeem.activity.item.name,
         }
 
         smsobj = self._send_sms(redeem.user.mobile, REDEEM_CREATE_CODE, params)

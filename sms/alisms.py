@@ -20,8 +20,8 @@ PRODUCT_NAME = "Dysmsapi"
 DOMAIN = "dysmsapi.aliyuncs.com"
 
 # ACCESS_KEY_ID/ACCESS_KEY_SECRET 根据实际申请的账号信息进行替换
-ACCESS_KEY_ID = "LTAISXKqtONJoD2o"
-ACCESS_KEY_SECRET = "dpswWTEsykkRfoo6DTcWUdd3PJhvcu"
+ACCESS_KEY_ID = "LTAIIvpdANTjv544"
+ACCESS_KEY_SECRET = "asHkeRirltdxtIl7JaVbDEI1nYdbOy"
 
 acs_client = AcsClient(ACCESS_KEY_ID, ACCESS_KEY_SECRET, REGION)
 region_provider.add_endpoint(PRODUCT_NAME, REGION, DOMAIN)
@@ -71,6 +71,6 @@ if __name__ == "__main__":
     __business_id = uuid.uuid1()
     print __business_id
     params = "{\"code\":\"12345\"}"
-    print send_sms(__business_id, "18025457649", "阿西莫夫", "SMS_123672353", params)
+    print send_sms(__business_id, "18025457649", "小粉盒", "SMS_138690015", params)
 
-    print query_send_detail("", "18025457649", 10, 1, "20180130")
+    # print query_send_detail("", "18025457649", 10, 1, "20180130")

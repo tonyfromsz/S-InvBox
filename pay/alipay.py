@@ -18,7 +18,7 @@ from const import PayStatus, PAY_EXPIRE_SECONDS
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 ALIPAY_URL = "https://openapi.alipay.com/gateway.do"
-APPID = "2017103009619714"
+APPID = "2018071860712199"
 
 
 logger = logging.getLogger(__name__)
@@ -98,6 +98,7 @@ class AliPay(object):
         """
         签名
         """
+        msg = msg.encode("utf-8")
         signer = Signature_pkcs1_v1_5.new(g_pri_key)
         digest = SHA256.new()
         digest.update(msg)
@@ -114,7 +115,7 @@ class AliPay(object):
         """
         verifier = Signature_pkcs1_v1_5.new(g_pub_key)
         digest = SHA256.new()
-        digest.update(msg)
+        digest.update(msg.encode("utf-8"))
         is_verify = verifier.verify(digest, base64.b64decode(sign))
         return is_verify
 

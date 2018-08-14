@@ -24,6 +24,8 @@ class RedisKeys(object):
 
     LOGIN_SMSCODE = "invbox:smslogin:%s"  # %s表示手机号码, 存验证码
 
+    WECHAT_SMSCODE = "invbox:smswechat:%s"  # %s表示手机号码, 存验证码
+
     TIMER_LOCK = "invbox:timerlock:%s"    # %s表示被装饰函数名字
 
     CRON_LOCK = "invbox:cronlock:%s"      # %s表示被装饰函数名字

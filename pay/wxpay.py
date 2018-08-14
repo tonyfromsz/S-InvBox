@@ -6,6 +6,7 @@ import os
 import time
 import random
 import requests
+import logging
 
 from datetime import datetime as dte, timedelta
 from util import md5
@@ -14,12 +15,14 @@ from const import PayStatus, PAY_EXPIRE_SECONDS
 
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_ID = "wxb2bb8a7fd152e6a3"
-MERCHANT_ID = "1393065002"
+APP_ID = "wxe3c5da7e6c5d0558"
+MERCHANT_ID = "1508397091"
 API_KEY = "2271d200a467cf22ca550a6fb22d8c4f"
 
 CERT_PATH = os.path.join(CUR_DIR, "apiclient_cert.pem")
 KEY_PATH = os.path.join(CUR_DIR, "apiclient_key.pem")
+
+logger = logging.getLogger()
 
 
 class WXPay(object):
@@ -58,7 +61,7 @@ class WXPay(object):
             "time_expire": time_expire,
             "notify_url": notify_url,
             "trade_type": "NATIVE",
-            "product_id": item_info["name"],                              # 商品ID，扫码支付必须传
+            "product_id": item_info["id"],                              # 商品ID，扫码支付必须传
         }
 
         params = self._build_params(biz_content)
@@ -67,6 +70,7 @@ class WXPay(object):
         data = xml_to_dict(r.content)
 
         if data["return_code"] != "SUCCESS":
+            logger.error("[wxpay] precreate fail. %s", data)
             return {}
         return {
             "prepay_id": data["prepay_id"],
@@ -124,7 +128,8 @@ class WXPay(object):
         buyer = data.get("openid", "")
         refund_money = 0
         pay_money = 0
-        trade_state = data["trade_state"]
+        # trade_state = data["trade_state"]
+        trade_state = data.get("trade_state", "")
         if trade_state == "SUCCESS":
             pay_status = PayStatus.PAIED
             pay_money = int(data["total_fee"])

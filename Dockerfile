@@ -1,6 +1,7 @@
+# FROM python:2.7-alpine
 FROM alpine:3.5
 
-RUN apk add --no-cache python vim py-mysqldb musl-dev linux-headers g++ python-dev libxml2-dev libffi-dev\
+RUN apk add --no-cache vim python py-mysqldb musl-dev linux-headers g++ python-dev libxml2-dev libffi-dev\
     libxml2 libxslt libxslt-dev tzdata ca-certificates gfortran openblas-dev libressl-dev&& \
     rm -rf /var/cache/apk/* && \
     ln -s /usr/include/locale.h /usr/include/xlocale.h && \

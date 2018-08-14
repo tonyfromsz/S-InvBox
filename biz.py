@@ -272,7 +272,8 @@ class DeviceBiz(object):
         if len(device_no) < 11:
             sid = device_no
         else:
-            sid = device_no[6: 10]
+            # sid = device_no[6: 10]
+            sid = device_no[:8]
         return DeviceCategory.get_or_none(name=sid)
 
     @db.atomic()
@@ -317,7 +318,7 @@ class DeviceBiz(object):
             return None
 
         road = max(roads, key=lambda b: b.amount)
-        if road.amount <= 2:
+        if road.amount < 0:
             return None
         return road
 
@@ -410,6 +411,7 @@ class MarktingBiz(object):
             return
 
         avt = redeem.activity
+        print now, avt.valid_end_at, avt.valid_start_at
         if now > avt.valid_end_at or now < avt.valid_start_at:
             self.redeem_error = "无效兑换码"
             return
@@ -548,8 +550,12 @@ class UserBiz(object):
                 self.user = User.get_or_create(username=buyer,
                                                aliuserid=buyer)
             elif pay_type == PayType.WX:
-                self.user = User.get_or_create(username=buyer,
-                                               wxuserid=buyer)
+                u = User.get_or_none(wxuserid=buyer)
+                if not u:
+                    u = User.create(username=buyer,
+                                    wxuserid=buyer)
+                    u.save()
+                self.user = u
             else:
                 self.user = User.get_or_create(username=buyer)
 

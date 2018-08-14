@@ -23,11 +23,11 @@ class Config(object):
     redis = {
         "host": DB_HOST,
         "port": 6380,
-        "database": 0,
+        "db": 0,
     }
 
     log_level = "INFO"
-    log_path = "/var/log/invbox"
+    log_path = "/src/logs"
 
     def to_dict(self):
         data = {}

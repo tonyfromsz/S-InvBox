@@ -26,6 +26,7 @@ from pay.manager import PayManager
 from biz import OrderBiz, DeviceBiz, MarktingBiz
 from sms.helper import SMSHelper
 from entrypoint import distributed_timer
+from entrypoint import distributed_timer, distributed_cron
 
 logger = logging.getLogger()
 
@@ -51,6 +52,20 @@ class InvboxService(BaseService):
         for o in Order.select().where(Order.status == OrderStatus.DELIVERING):
             biz = OrderBiz(order=o)
             biz.check_deliver_timeout()
+
+    @distributed_cron("****-**-** 00:01:00")
+    def stat_lastday_data(self):
+        logger.info("[stat_lastday_data]")
+        last_day = dte.now() - timedelta(days=1)
+        try:
+            stat.stat_device_by_day(last_day)
+        except:
+            logger.exception("")
+
+        try:
+            stat.stat_item_by_day(last_day)
+        except:
+            logger.exception("")
 
     @rpc
     def check_login(self, username, password):
