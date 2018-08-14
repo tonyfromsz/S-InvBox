@@ -24,8 +24,7 @@ from selector import (UserSelectorProxy, SelectorProxy, ItemSelectorProxy,
 from const import (OrderStatus, PayStatus, PayType, SupplyStatus, RedeemStatus, RoadStatus)
 from pay.manager import PayManager
 from biz import OrderBiz, DeviceBiz, MarktingBiz
-from sms.helper import SMSHelper
-from entrypoint import distributed_timer
+# from sms.helper import SMSHelper
 from entrypoint import distributed_timer, distributed_cron
 
 logger = logging.getLogger()
@@ -1140,6 +1139,21 @@ class InvboxService(BaseService):
                             "value": obj.address_id
                         })
                 query.append(address_list)
+        if export:
+            query.append([
+                {
+                    "operator": "≠",
+                    "attribute": "status",
+                    "value": 1
+                }
+            ])
+            query.append([
+                {
+                    "operator": "≠",
+                    "attribute": "status",
+                    "value": 10
+                }
+            ])
 
         def _parser(obj):
             device = obj.device
@@ -1154,7 +1168,7 @@ class InvboxService(BaseService):
                     "id": device.id,
                     "no": device.no,
                     "name": device.name,
-                    "address": device.address_type.id
+                    "address": device.address
                 },
                 "redeem": {
                     "id": None if not redeem else redeem.id,
@@ -1688,9 +1702,11 @@ class InvboxService(BaseService):
                 "no": obj.no,
                 "device": {
                     "id": device.id,
+                    "no": device.no,
                     "name": device.name,
                     "online": device.online,
-                    "address_type": device.address_type.id
+                    "address_type": device.address_type.id,
+                    "address": device.address
                 },
                 "item": {
                     "id": item.id,
@@ -3334,7 +3350,8 @@ class InvboxService(BaseService):
                 .where(
                 Order.created_at >= date,
                 Order.created_at <= now,
-                Order.pay_status != 1,
+                Order.status != 1,
+                Order.status != 10,
                 User.mobile != "",
             )
             print(fans_buy_qs.count())
@@ -3342,7 +3359,8 @@ class InvboxService(BaseService):
                 .join(User, JOIN.LEFT_OUTER) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.pay_status != 1)
+                       Order.status != 1,
+                       Order.status != 10)
             print(total_buy_qs.count())
             fans_buy_rate = (float(fans_buy_qs.count()) / int(total_buy_qs.count())) if int(total_buy_qs.count()) else 0
 
@@ -3472,7 +3490,8 @@ class InvboxService(BaseService):
                 .count()
             sale_qs = Order.select(fn.SUM(Order.pay_money).alias("sales_amount"),
                                    fn.SUM(Order.item_amount).alias("item_amount")) \
-                .where(Order.pay_status != 1,
+                .where(Order.status != 1,
+                       Order.status != 10,
                        Order.created_at >= date,
                        Order.created_at <= now)
             if sale_qs.count() < 1:
@@ -3621,7 +3640,7 @@ class InvboxService(BaseService):
             top_sale_device_list = []
             for obj in sale_qs:
                 sale_list.append(float(obj.device_sale))
-                top_sale_device_list.append(str(obj.device.name))
+                top_sale_device_list.append(str(obj.device.address))
 
             item_device_rank[zoom]["deviceSales"] = sale_list[:sale_rank]
             item_device_rank[zoom]["topSalesDevice"] = top_sale_device_list[:sale_rank]
