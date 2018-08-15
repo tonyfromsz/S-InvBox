@@ -3350,8 +3350,8 @@ class InvboxService(BaseService):
                 .where(
                 Order.created_at >= date,
                 Order.created_at <= now,
-                Order.status != 1,
-                Order.status != 10,
+                Order.status != OrderStatus.CREATED,
+                Order.status != OrderStatus.CLOSED,
                 User.mobile != "",
             )
             print(fans_buy_qs.count())
@@ -3359,8 +3359,9 @@ class InvboxService(BaseService):
                 .join(User, JOIN.LEFT_OUTER) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.status != 1,
-                       Order.status != 10)
+                       Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED
+                       )
             print(total_buy_qs.count())
             fans_buy_rate = (float(fans_buy_qs.count()) / int(total_buy_qs.count())) if int(total_buy_qs.count()) else 0
 
@@ -3413,7 +3414,8 @@ class InvboxService(BaseService):
         device_active_qs = Order.select(fn.Count(fn.Distinct(Order.device)).alias("active_device"))\
             .where(Order.created_at >= from_day,
                    Order.created_at <= now,
-                   Order.status != 1
+                   Order.status != OrderStatus.CREATED,
+                   Order.status != OrderStatus.CLOSED
                    )
 
         involved_device_count = int(device_involved_qs.count()) if device_involved_qs.count() else 0
@@ -3490,8 +3492,8 @@ class InvboxService(BaseService):
                 .count()
             sale_qs = Order.select(fn.SUM(Order.pay_money).alias("sales_amount"),
                                    fn.SUM(Order.item_amount).alias("item_amount")) \
-                .where(Order.status != 1,
-                       Order.status != 10,
+                .where(Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED,
                        Order.created_at >= date,
                        Order.created_at <= now)
             if sale_qs.count() < 1:
@@ -3573,7 +3575,8 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != 1
+                       Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED
                        )\
                 .group_by(Order.item)\
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3600,7 +3603,8 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != 1
+                       Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED
                        )\
                 .group_by(Order.item)\
                 .order_by(fn.SUM(Order.item_amount).desc())
@@ -3625,7 +3629,8 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != 1
+                       Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED
                        ) \
                 .group_by(Order.device) \
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3651,7 +3656,8 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != 1
+                       Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED
                        ) \
                 .group_by(Order.device) \
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3677,7 +3683,8 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != 1
+                       Order.status != OrderStatus.CREATED,
+                       Order.status != OrderStatus.CLOSED
                        ) \
                 .group_by(Order.user) \
                 .order_by(fn.COUNT(Order.id).desc())
