@@ -3252,8 +3252,8 @@ class InvboxService(BaseService):
             flows_list = []
             flows_device_list = []
             for obj in flows_qs:
-                print(obj.device.name, obj.flows)
-                flows_device_list.append(obj.device.name)
+                # print(obj.device.name, obj.flows)
+                flows_device_list.append(obj.device.address)
                 flows_list.append(obj.flows)
             top_5_rank[zoom]["flows"]["device"] = flows_device_list[:flows_rank]
             top_5_rank[zoom]["flows"]["count"] = flows_list[:flows_rank]
@@ -3273,8 +3273,8 @@ class InvboxService(BaseService):
             rank_devive_name_list = []
 
             for obj in stays_qs:
-                print(obj.device.name, obj.stays)
-                rank_devive_name_list.append(obj.device.name)
+                # print(obj.device.name, obj.stays)
+                rank_devive_name_list.append(obj.device.address)
                 rank_stays_list.append(obj.stays)
 
             # 點擊
@@ -3293,8 +3293,8 @@ class InvboxService(BaseService):
             rank_clicks_list = []
             rank_device_clicks_list = []
             for obj in clicks_qs:
-                print(obj.device.name, obj.clicks)
-                rank_device_clicks_list.append(obj.device.name)
+                # print(obj.device.name, obj.clicks)
+                rank_device_clicks_list.append(obj.device.address)
                 rank_clicks_list.append(obj.clicks)
             top_5_rank[zoom]["clicks"]["device"] = rank_device_clicks_list[:rank]
             top_5_rank[zoom]["clicks"]["count"] = rank_clicks_list[:rank]
@@ -3350,8 +3350,7 @@ class InvboxService(BaseService):
                 .where(
                 Order.created_at >= date,
                 Order.created_at <= now,
-                Order.status != OrderStatus.CREATED,
-                Order.status != OrderStatus.CLOSED,
+                Order.status == OrderStatus.DONE,
                 User.mobile != "",
             )
             print(fans_buy_qs.count())
@@ -3359,8 +3358,7 @@ class InvboxService(BaseService):
                 .join(User, JOIN.LEFT_OUTER) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
-                       Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED
+                       Order.status == OrderStatus.DONE
                        )
             print(total_buy_qs.count())
             fans_buy_rate = (float(fans_buy_qs.count()) / int(total_buy_qs.count())) if int(total_buy_qs.count()) else 0
@@ -3414,8 +3412,7 @@ class InvboxService(BaseService):
         device_active_qs = Order.select(fn.Count(fn.Distinct(Order.device)).alias("active_device"))\
             .where(Order.created_at >= from_day,
                    Order.created_at <= now,
-                   Order.status != OrderStatus.CREATED,
-                   Order.status != OrderStatus.CLOSED
+                   Order.status == OrderStatus.DONE
                    )
 
         involved_device_count = int(device_involved_qs.count()) if device_involved_qs.count() else 0
@@ -3492,8 +3489,7 @@ class InvboxService(BaseService):
                 .count()
             sale_qs = Order.select(fn.SUM(Order.pay_money).alias("sales_amount"),
                                    fn.SUM(Order.item_amount).alias("item_amount")) \
-                .where(Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED,
+                .where(Order.status == OrderStatus.DONE,
                        Order.created_at >= date,
                        Order.created_at <= now)
             if sale_qs.count() < 1:
@@ -3575,8 +3571,7 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED
+                       Order.status == OrderStatus.DONE
                        )\
                 .group_by(Order.item)\
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3603,8 +3598,7 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED
+                       Order.status == OrderStatus.DONE
                        )\
                 .group_by(Order.item)\
                 .order_by(fn.SUM(Order.item_amount).desc())
@@ -3629,8 +3623,7 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED
+                       Order.status == OrderStatus.DONE
                        ) \
                 .group_by(Order.device) \
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3656,8 +3649,7 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED
+                       Order.status == OrderStatus.DONE
                        ) \
                 .group_by(Order.device) \
                 .order_by(fn.SUM(Order.pay_money).desc())
@@ -3672,7 +3664,7 @@ class InvboxService(BaseService):
             top_amount_device_list = []
             for obj in amount_qs:
                 amount_list.append(float(obj.device_amount))
-                top_amount_device_list.append(str(obj.device.name))
+                top_amount_device_list.append(str(obj.device.address))
 
             item_device_rank[zoom]["deviceAmount"] = amount_list[:amount_rank]
             item_device_rank[zoom]["topAmountDevices"] = top_amount_device_list[:amount_rank]
@@ -3683,8 +3675,7 @@ class InvboxService(BaseService):
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
                        Order.redeem.is_null(True),
-                       Order.status != OrderStatus.CREATED,
-                       Order.status != OrderStatus.CLOSED
+                       Order.status == OrderStatus.DONE
                        ) \
                 .group_by(Order.user) \
                 .order_by(fn.COUNT(Order.id).desc())
