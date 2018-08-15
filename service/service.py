@@ -3046,8 +3046,8 @@ class InvboxService(BaseService):
         def _parser(obj):
             d = {
                 "day": obj.day,
-                "device": obj.device_id,
-                "address_type": obj.device.address_type.name,
+                "device": obj.device.no,
+                "address_type": obj.device.address,
                 "flows": obj.flows,
                 "stays": obj.stays,
                 "clicks": obj.clicks,
