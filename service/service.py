@@ -4,6 +4,7 @@ import logging
 import ujson as json
 import selector as slt
 import const as C
+import datastat as stat
 
 from datetime import datetime as dte, timedelta
 from peewee import fn, JOIN
@@ -3140,13 +3141,21 @@ class InvboxService(BaseService):
         print("online_device:", online_device)
 
         for zoom, date in date_params.items():
+            user_buy_qs = Order.select(fn.COUNT(fn.DISTINCT(Order.user)).alias("total_users_pay"))\
+                .where(Order.pay_status != PayStatus.UNPAY,
+                       Order.pay_status != PayStatus.CLOSED,
+                       Order.created_at >= date,
+                       Order.created_at <= now)
+            user_buy_total = user_buy_qs.first()
+            flow_volume_date[zoom]["usersPay"] = int(user_buy_total.total_users_pay)
+
             qs = DayDeviceStat.select().where(DayDeviceStat.created_at >= date,
                                               DayDeviceStat.created_at <= now)
             total_qs = qs.select(
                 fn.sum(DayDeviceStat.flows).alias("total_flows"),
                 fn.sum(DayDeviceStat.stays).alias("total_stays"),
                 fn.sum(DayDeviceStat.clicks).alias("total_clicks"),
-                fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
+                # fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
             )
             flow_volume_date[zoom]["startTime"] = date.strftime("%Y-%m-%d %H:%M:%S")
             flow_volume_date[zoom]["endTime"] = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -3156,12 +3165,15 @@ class InvboxService(BaseService):
 
             stays_conversion = (float(total.total_stays) / int(total.total_flows)) if int(total.total_flows) else 0
             clicks_conversion = (float(total.total_clicks) / int(total.total_stays)) if int(total.total_stays) else 0
-            pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
+            pay_conversion = (float(user_buy_total.total_users_pay) / int(total.total_clicks)) \
+                if int(total.total_clicks) else 0
 
             flow_volume_date[zoom]["flows"] = int(total.total_flows)
             flow_volume_date[zoom]["stays"] = int(total.total_stays)
             flow_volume_date[zoom]["clicks"] = int(total.total_clicks)
-            flow_volume_date[zoom]["usersPay"] = int(total.total_users_pay)
+
+            # flow_volume_date[zoom]["usersPay"] = int(total.total_users_pay)
+
             flow_volume_date[zoom]["staysConversion"] = "%.2f%%" % (stays_conversion * 100)
             flow_volume_date[zoom]["clicksConversion"] = "%.2f%%" % (clicks_conversion * 100)
             flow_volume_date[zoom]["payConversion"] = "%.2f%%" % (pay_conversion * 100)
@@ -3720,18 +3732,25 @@ class InvboxService(BaseService):
             pay_conversion_trend["lastWeekDate"].append(from_time.strftime("%m-%d"))
             qs = DayDeviceStat.select().where(DayDeviceStat.created_at >= from_time,
                                               DayDeviceStat.created_at <= to_time)
+            pay_qs = Order.select(fn.COUNT(fn.DISTINCT(Order.user)).alias("total_users_pay"))\
+                .where(Order.created_at >= from_time,
+                       Order.created_at <= to_time,
+                       Order.pay_status != PayStatus.UNPAY,
+                       Order.pay_status != PayStatus.CLOSED
+                       )
             total_qs = qs.select(
                 fn.sum(DayDeviceStat.clicks).alias("total_clicks"),
-                fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
             )
-            if not total_qs.count():
+            if not total_qs.count() or not pay_qs.count():
                 pay_conversion_trend["lastWeekTrend"].append(None)
                 continue
+            total_pay = pay_qs.first()
             total = total_qs.first()
-            if not total.total_users_pay or not total.total_clicks:
+            if not total_pay.total_users_pay or not total.total_clicks:
                 pay_conversion_trend["lastWeekTrend"].append("%.2f%%" % 0)
             else:
-                pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
+                pay_conversion = (float(total_pay.total_users_pay) / int(total.total_clicks)) \
+                    if int(total.total_clicks) else 0
                 pay_conversion_trend["lastWeekTrend"].append("%.2f%%" % (pay_conversion * 100))
 
             # 本周
@@ -3744,16 +3763,121 @@ class InvboxService(BaseService):
                                               DayDeviceStat.created_at <= to_this_time)
             total_qs = qs.select(
                 fn.sum(DayDeviceStat.clicks).alias("total_clicks"),
-                fn.sum(DayDeviceStat.users_pay).alias("total_users_pay"),
             )
-            if not total_qs.count():
+            pay_qs = Order.select(fn.COUNT(fn.DISTINCT(Order.user)).alias("total_users_pay")) \
+                .where(Order.created_at >= from_this_time,
+                       Order.created_at <= to_this_time,
+                       Order.pay_status != PayStatus.UNPAY,
+                       Order.pay_status != PayStatus.CLOSED
+                       )
+
+            if not total_qs.count() or not pay_qs.count():
                 pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % 0)
                 continue
             total = total_qs.first()
-            if not total.total_users_pay or not total.total_clicks:
+            total_pay = pay_qs.first()
+            if not total_pay.total_users_pay or not total.total_clicks:
                 pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % 0)
             else:
-                pay_conversion = (float(total.total_users_pay) / int(total.total_clicks)) if int(total.total_clicks) else 0
+                pay_conversion = (float(total_pay.total_users_pay) / int(total.total_clicks)) \
+                    if int(total.total_clicks) else 0
                 pay_conversion_trend["thisWeekTrend"].append("%.2f%%" % (pay_conversion * 100))
 
         return pay_conversion_trend
+
+    @rpc
+    def get_user(self, openid):
+        u = User.get_or_none(User.wxuserid == openid)
+        if not u:
+            u = User.create(wxuserid=openid, username=openid)
+            u.save()
+        res = {
+            "resultCode": 0,
+            "resultMsg": "OK",
+            "mobile": u.mobile
+        }
+        res.update(res)
+        return res
+
+    @rpc
+    def modify_user(self, openid, mobile, code):
+
+        key = RedisKeys.WECHAT_SMSCODE % mobile
+        rds = get_redis()
+        if code != rds.get(key):
+            return {
+                "resultCode": 1,
+                "resultMsg": "验证码错误"
+            }
+
+        u = User.get_or_none(User.wxuserid == openid)
+        if not u:
+            u = User.create(wxuserid=openid, username=openid)
+            u.save()
+        u.mobile = mobile
+        u.save()
+        return {
+            "resultCode": 0,
+            "resultMsg": "OK"
+        }
+
+    @rpc
+    def send_message_for_wechat(self, mobile):
+        expire_seconds = 5 * 60
+
+        key = RedisKeys.WECHAT_SMSCODE % mobile
+        rds = get_redis()
+        left_time = rds.ttl(key)
+        if left_time and expire_seconds - int(left_time) < 60:
+            return {
+                "resultCode": 1,
+                "resultMsg": "发送失败，1分钟内只能发送一次验证短信"
+            }
+
+        helper = SMSHelper()
+        smsobj = helper.send_wechat_message(mobile)
+
+        if smsobj.status == C.SMSStatus.OK:
+            info = json.loads(smsobj.tplparam)
+            code = info["code"]
+            rds.set(key, code, ex=expire_seconds)
+            return {
+                "resultCode": 0,
+                "resultMsg": "发送成功"
+            }
+        else:
+            return {
+                "resultCode": 1,
+                "resultMsg": "短信发送失败"
+            }
+
+    @rpc
+    def add_client_log(self, deviceid, stype, data):
+        print(deviceid + '/type/' + stype)
+        print(data)
+        device = Device.get_or_create(no=deviceid)
+        if not device:
+            return {
+                "resultCode": 1,
+                "resultMsg": "设备不存在"
+            }
+
+        if not isinstance(data, dict):
+            try:
+                data = json.loads(data)
+            except:
+                data = eval(data)
+
+        day = dte.now().strftime("%Y-%m-%d")
+        if stype == "flow":
+            dds = DayDeviceStat.get_or_create(device=device, day=day)
+            dds.flows = dds.flows + data["count"]
+            dds.save()
+        elif stype == "stays":
+            dds = DayDeviceStat.get_or_create(device=device, day=day)
+            dds.stays = dds.stays + data["count"]
+            dds.save()
+        elif stype == "lockPageClick":
+            dds = DayDeviceStat.get_or_create(device=device, day=day)
+            dds.clicks = dds.clicks + 1
+            dds.save()
