@@ -4,7 +4,7 @@ import logging
 import ujson as json
 import selector as slt
 import const as C
-import datastat as stat
+# import datastat as stat
 
 from datetime import datetime as dte, timedelta
 from peewee import fn, JOIN
@@ -3137,9 +3137,6 @@ class InvboxService(BaseService):
             }
         ]]
 
-        online_device = DeviceSelectorProxy(query).select().count()
-        print("online_device:", online_device)
-
         for zoom, date in date_params.items():
             user_buy_qs = Order.select(fn.COUNT(fn.DISTINCT(Order.user)).alias("total_users_pay"))\
                 .where(Order.pay_status != PayStatus.UNPAY,
@@ -3178,11 +3175,13 @@ class InvboxService(BaseService):
             flow_volume_date[zoom]["clicksConversion"] = "%.2f%%" % (clicks_conversion * 100)
             flow_volume_date[zoom]["payConversion"] = "%.2f%%" % (pay_conversion * 100)
 
+            online_device = Device.select().where(Device.heartbeat_at >= date).count()
             if zoom == "week" and online_device:
+                # print("online_device:", online_device)
                 flow_volume_date["avg_device"]["flows"] = int(total.total_flows / online_device)
                 flow_volume_date["avg_device"]["stays"] = int(total.total_stays / online_device)
                 flow_volume_date["avg_device"]["clicks"] = int(total.total_clicks / online_device)
-                flow_volume_date["avg_device"]["usersPay"] = int(total.total_users_pay / online_device)
+                flow_volume_date["avg_device"]["usersPay"] = int(user_buy_total.total_users_pay / online_device)
                 flow_volume_date["avg_device"]["startTime"] = date.strftime("%Y-%m-%d %H:%M:%S")
                 flow_volume_date["avg_device"]["endTime"] = now.strftime("%Y-%m-%d %H:%M:%S")
 
