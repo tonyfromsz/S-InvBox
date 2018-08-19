@@ -4,7 +4,7 @@ import logging
 import ujson as json
 import selector as slt
 import const as C
-# import datastat as stat
+import datastat as stat
 
 from datetime import datetime as dte, timedelta
 from peewee import fn, JOIN
@@ -25,7 +25,7 @@ from selector import (UserSelectorProxy, SelectorProxy, ItemSelectorProxy,
 from const import (OrderStatus, PayStatus, PayType, SupplyStatus, RedeemStatus, RoadStatus)
 from pay.manager import PayManager
 from biz import OrderBiz, DeviceBiz, MarktingBiz
-# from sms.helper import SMSHelper
+from sms.helper import SMSHelper
 from entrypoint import distributed_timer, distributed_cron
 
 logger = logging.getLogger()
@@ -3250,11 +3250,12 @@ class InvboxService(BaseService):
         }
         for zoom, date in date_params.items():
             # 經過
-            flows_qs = DayDeviceStat.select(Device, DayDeviceStat)\
+            flows_qs = DayDeviceStat.select(Device, fn.SUM(DayDeviceStat.flows).alias("sum_flows"))\
                 .join(Device, JOIN.LEFT_OUTER)\
                 .where(DayDeviceStat.created_at >= date,
                        DayDeviceStat.created_at <= now)\
-                .order_by(DayDeviceStat.flows.desc())
+                .group_by(DayDeviceStat.device) \
+                .order_by(fn.SUM(DayDeviceStat.flows).desc())
             if flows_qs.count() >= 5:
                 flows_rank = 5
             else:
@@ -3265,16 +3266,17 @@ class InvboxService(BaseService):
             for obj in flows_qs:
                 # print(obj.device.name, obj.flows)
                 flows_device_list.append(obj.device.address)
-                flows_list.append(obj.flows)
+                flows_list.append(int(obj.sum_flows))
             top_5_rank[zoom]["flows"]["device"] = flows_device_list[:flows_rank]
             top_5_rank[zoom]["flows"]["count"] = flows_list[:flows_rank]
 
             # 停留
-            stays_qs = DayDeviceStat.select(Device, DayDeviceStat) \
+            stays_qs = DayDeviceStat.select(Device, fn.SUM(DayDeviceStat.stays).alias("sum_stays")) \
                 .join(Device, JOIN.LEFT_OUTER) \
                 .where(DayDeviceStat.created_at >= date,
                        DayDeviceStat.created_at <= now) \
-                .order_by(DayDeviceStat.stays.desc())
+                .group_by(DayDeviceStat.device) \
+                .order_by(fn.SUM(DayDeviceStat.stays).desc())
             if stays_qs.count() >= 5:
                 stays_rank = 5
             else:
@@ -3286,17 +3288,18 @@ class InvboxService(BaseService):
             for obj in stays_qs:
                 # print(obj.device.name, obj.stays)
                 rank_devive_name_list.append(obj.device.address)
-                rank_stays_list.append(obj.stays)
+                rank_stays_list.append(int(obj.sum_stays))
 
             # 點擊
             top_5_rank[zoom]["stays"]["device"] = rank_devive_name_list[:stays_rank]
             top_5_rank[zoom]["stays"]["count"] = rank_stays_list[:stays_rank]
 
-            clicks_qs = DayDeviceStat.select(Device, DayDeviceStat) \
+            clicks_qs = DayDeviceStat.select(Device, fn.SUM(DayDeviceStat.clicks).alias("sum_clicks")) \
                 .join(Device, JOIN.LEFT_OUTER) \
                 .where(DayDeviceStat.created_at >= date,
                        DayDeviceStat.created_at <= now) \
-                .order_by(DayDeviceStat.clicks.desc())
+                .group_by(DayDeviceStat.device) \
+                .order_by(fn.SUM(DayDeviceStat.clicks).desc())
             if clicks_qs.count() >= 5:
                 rank = 5
             else:
@@ -3306,7 +3309,7 @@ class InvboxService(BaseService):
             for obj in clicks_qs:
                 # print(obj.device.name, obj.clicks)
                 rank_device_clicks_list.append(obj.device.address)
-                rank_clicks_list.append(obj.clicks)
+                rank_clicks_list.append(int(obj.sum_clicks))
             top_5_rank[zoom]["clicks"]["device"] = rank_device_clicks_list[:rank]
             top_5_rank[zoom]["clicks"]["count"] = rank_clicks_list[:rank]
 
