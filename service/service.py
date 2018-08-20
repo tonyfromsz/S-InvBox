@@ -3658,7 +3658,7 @@ class InvboxService(BaseService):
             item_device_rank[zoom]["topSalesDevice"] = top_sale_device_list[:sale_rank]
 
             # 單機銷售量排行
-            amount_qs = Order.select(Device, fn.SUM(Order.pay_money).alias("device_amount")) \
+            amount_qs = Order.select(Device, fn.SUM(Order.item_amount).alias("device_amount")) \
                 .join(Device) \
                 .where(Order.created_at >= date,
                        Order.created_at <= now,
@@ -3666,7 +3666,7 @@ class InvboxService(BaseService):
                        Order.status == OrderStatus.DONE
                        ) \
                 .group_by(Order.device) \
-                .order_by(fn.SUM(Order.pay_money).desc())
+                .order_by(fn.SUM(Order.item_amount).desc())
 
             if amount_qs.count() >= 5:
                 amount_rank = 5
